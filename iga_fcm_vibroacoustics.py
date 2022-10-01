@@ -7,18 +7,18 @@ import bspline
 from scipy.interpolate import BSpline
 
 
-k = 5
+k = 3
 n = 12
-depth = 3
+depth = 5
 
 left = 0
 right = 1.2
-extra = 0.04
+extra = 0.0
 
 def salpha(x):
     if x>=left+extra and x<=right-extra:
         return 1.0
-    return 1e-6
+    return 1e-10
 
 
 print("Meshing...", flush=True)
@@ -57,26 +57,42 @@ valK = np.zeros(nval*n)
 for i in range(n):
     lm = range(i, i+k+1)
     print("lm %d: " % (i) + str(list(lm)))
-    Me = np.zeros( ( 2, 2 ) ) 
-    Ke = np.zeros( ( 2, 2 ) )
+    Me = np.zeros( ( k+1, k+1 ) ) 
+    Ke = np.zeros( ( k+1, k+1 ) )
     x1 = t[k+i]
     x2 = t[k+1+i]
     points, weights = qpoints(x1,x2)
     for j in range(len(points)):
-        shapes = evalbspline(t, k, i, points[j], 1)
+        shapes = bspline.evaluateBSplineBases(k+i, points[j], k, 1, t)
         N = np.asarray(shapes[0])
         B = np.asarray(shapes[1])
         Me += np.outer(N, N) * weights[j]
-        Ke += np.outer(B, B) * weights[j]        
+        Ke += np.outer(B, B) * weights[j]
     eslice = slice(nval * i, nval * (i + 1))
-    row[eslice] = np.broadcast_to( locationMap, (k+1, k+1) ).T.ravel()
-    col[eslice] = np.broadcast_to( locationMap, (k+1, k+1) ).ravel()
+    row[eslice] = np.broadcast_to( lm, (k+1, k+1) ).T.ravel()
+    col[eslice] = np.broadcast_to( lm, (k+1, k+1) ).ravel()
     valM[eslice] = Me.ravel()
     valK[eslice] = Ke.ravel()
 
 M = scipy.sparse.coo_matrix( (valM, (row, col)) ).tocsc( )
 K = scipy.sparse.coo_matrix( (valK, (row, col)) ).tocsc( )
 
+M.data[np.abs(M.data) < 1e-16 * scipy.sparse.linalg.norm(M)] = 0.0
+M.eliminate_zeros()
+
+
+#w = scipy.sparse.linalg.eigs(K, K.shape[0]-2, M.toarray(), which='SM', return_eigenvectors=False)
+
+fullK = K.toarray();
+fullM = M.toarray();
+diagM = np.zeros(M.shape);
+
+for i in range(M.shape[0]):
+    diagM[i,i] = sum(fullM[i,:]) 
+
+w = scipy.linalg.eigvals(fullK, fullM)
+w = np.sqrt(np.real(w))
+w = np.sort(w)
         
         
 allpoints = []
@@ -91,15 +107,23 @@ for i in range(n):
     
 # plot
 print("Plotting...", flush=True)
-figure, ax = plt.subplots()
+fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
 
-ax.set_xlim(left, right)
-ax.set_ylim(-0.5, 1.5)
+ax1.set_xlim(left, right)
+ax1.set_ylim(-0.5, 1.5)
 
+ax1.plot(t, np.zeros(t.size), '-o')
+ax1.plot(t, np.ones(t.size), '-o')
+ax1.plot(allpoints, allweights, 'x')
 
-ax.plot(t, np.zeros(t.size), '-o')
-ax.plot(t, np.ones(t.size), '-o')
-ax.plot(allpoints, allweights, 'x')
+ax2.plot(w)
 
 plt.show()
+
+def plot(pt):
+    figure, ax = plt.subplots()
+    ax.plot(pt)
+    plt.show()
+    
+    
 

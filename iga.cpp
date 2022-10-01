@@ -8,11 +8,6 @@
 #include "BSpline.h"
 
 
-
-
-
-
-
 int main() {
 
     BSpline bspline{3, 1, {0,0,0,0,1,2,3,4,4,4,4}};
