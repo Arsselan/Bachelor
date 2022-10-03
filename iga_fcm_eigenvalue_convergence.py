@@ -7,9 +7,9 @@ import bspline
 from scipy.interpolate import BSpline
 
 
-def runStudy(k, extra):
+def runStudy(n, k, extra):
     #k = 1
-    n = 12
+    #n = 12
     depth = 10
 
     left = 0
@@ -22,7 +22,7 @@ def runStudy(k, extra):
         return 0
 
 
-    print("Meshing...", flush=True)
+    #print("Meshing...", flush=True)
 
     # create knot span
     length = right - left
@@ -92,14 +92,14 @@ def runStudy(k, extra):
             fullK=np.delete(fullK, 0, 0)
             fullK=np.delete(fullK, 0, 1)
             deleted = 1
-            print("Deleted left")
+            #print("Deleted left")
         if(fullM[-1,-1]<1e-60):
             fullM=np.delete(fullM, -1, 0)
             fullM=np.delete(fullM, -1, 1)
             fullK=np.delete(fullK, -1, 0)
             fullK=np.delete(fullK, -1, 1)
             deleted = 1
-            print("Deleted right")
+            #print("Deleted right")
     
     diagM = np.zeros(fullM.shape);
     for i in range(fullM.shape[0]):
@@ -108,9 +108,11 @@ def runStudy(k, extra):
     w = scipy.linalg.eigvals(fullK, fullM)    
     w = np.sqrt(np.abs(w))
     w = np.sort(w)
-    print(w)
+    #print(w)
     
-    return max(w)
+    dofs = fullM.shape[0]
+    
+    return dofs, w[1+5]
     
     
 def plot(ptx,pty):
@@ -119,25 +121,35 @@ def plot(ptx,pty):
     plt.show()
     
 figure, ax = plt.subplots()
-ax.set_ylim(5, 500)
+#ax.set_ylim(5, 500)
+
+extra = 0.2
+
+nh = 16
+
+wexact = (6*np.pi)/(1.2-2*extra)
+
 for p in range(4):
-    ne = 11
-    extras = list(np.linspace(0, 0.099, ne)) + list(np.linspace(0.1, 0.199, ne)) + list(np.linspace(0.2, 0.299, ne)) + [0.3]
-    ne = len(extras)
-    maxw = [0]*ne
-    for i in range(ne):
-        maxw[i] = runStudy(p+1, extras[i])
-        print("e = %e, wmax = %e" % (extras[i], maxw[i]))        
-    ax.plot(extras, maxw,'-o', label='p=' + str(p+1))
+    print("p = %d" % p)
+    minw = [0]*nh
+    errors = [0]*nh
+    dofs = [0]*nh
+    for i in range(nh):
+        dofs[i], minw[i] = runStudy(12*(i+1), p+1, extra)
+        errors[i] = np.abs(minw[i] - wexact) / wexact
+        print("dof = %e, wmin = %e, , e = %e" % (dofs[i], minw[i], errors[i]))        
+    ax.semilogy(dofs, errors,'-o', label='p=' + str(p+1))
 
 ax.legend()
 
 plt.rcParams['axes.titleweight'] = 'bold'
 plt.title("consistent mass matrix")
-plt.xlabel('ficticious domain size')  
-plt.ylabel('heighest eigenvalue')  
+#plt.title("lumped mass matrix")
+plt.xlabel('degrees of freedom')  
+plt.ylabel('relative error in sixth eigenvalue ')  
 
-plt.savefig('eigenvalue_consistent.pdf')  
+plt.savefig('eigenvalue_convergent_consistent.pdf')
+#plt.savefig('eigenvalue_convergent_lumped.pdf')
 plt.show()
 
     
