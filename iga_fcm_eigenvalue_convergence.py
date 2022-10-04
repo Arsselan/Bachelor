@@ -7,6 +7,12 @@ import bspline
 from scipy.interpolate import BSpline
 
 
+def find_nearest(array, value):
+    array = np.asarray(array)
+    idx = (np.abs(array - value)).argmin()
+    return array[idx]
+
+
 def runStudy(n, k, extra):
     #k = 1
     #n = 12
@@ -105,14 +111,16 @@ def runStudy(n, k, extra):
     for i in range(fullM.shape[0]):
         diagM[i,i] = sum(fullM[i,:])
     
-    w = scipy.linalg.eigvals(fullK, diagM)    
+    w = scipy.linalg.eigvals(fullK, fullM)    
     w = np.sqrt(np.abs(w))
     w = np.sort(w)
     #print(w)
     
     dofs = fullM.shape[0]
     
-    return dofs, w[1+5]
+    wexact = (10*np.pi)/(1.2-2*extra)
+        
+    return dofs, find_nearest(w, wexact) # w[1+5]
     
     
 def plot(ptx,pty):
@@ -127,7 +135,7 @@ extra = 0.20
 
 nh = 8
 
-wexact = (6*np.pi)/(1.2-2*extra)
+wexact = (10*np.pi)/(1.2-2*extra)
 
 for p in range(4):
     print("p = %d" % p)

@@ -82,6 +82,12 @@ def evaluateLagrangeBasesX(i, x, k, maxDerOrder, t):
     
     return [ diff0, diff1 ]
 
+def find_nearest(array, value):
+    array = np.asarray(array)
+    idx = (np.abs(array - value)).argmin()
+    return array[idx]
+
+
 def runStudy(n, k, extra):
     #k = 1
     #n = 12
@@ -91,7 +97,7 @@ def runStudy(n, k, extra):
     right = 1.2
     #extra = 0.0
     
-    samppoints = np.linspace(-1, 1, k+1);
+    #samppoints = np.linspace(-1, 1, k+1);
     gllPoints = GLL(k+1)
     samppoints = gllPoints[0]
     
@@ -109,20 +115,21 @@ def runStudy(n, k, extra):
 
 
     # create quadrature points
-    gaussPoints = np.polynomial.legendre.leggauss(k+1)
-    #gaussPoints = GLL(k+1)
-    def qpoints(x1, x2, level=0):
+    glPoints = np.polynomial.legendre.leggauss(k+1)
+    gllPoints = np.polynomial.legendre.leggauss(k+1)
+    #gllPoints = GLL(k+1)
+    def qpoints(x1, x2, quadPoints, level=0):
         d = x2-x1;
         if salpha(x1)==salpha(x2) or level>=depth:
             points = [0]*(k+1)
             weights = [0]*(k+1)
             for j in range(k+1):
-                points[j] = x1 + d * 0.5 * ( gaussPoints[0][j] + 1 )
-                weights[j] = gaussPoints[1][j] * d / 2 * salpha(points[j])
+                points[j] = x1 + d * 0.5 * ( quadPoints[0][j] + 1 )
+                weights[j] = quadPoints[1][j] * d / 2 * salpha(points[j])
             return points, weights
         else:
-            pointsL, weightsL = qpoints(x1, x1+d/2, level+1)
-            pointsR, weightsR = qpoints(x1+d/2, x2, level+1)
+            pointsL, weightsL = qpoints(x1, x1+d/2, quadPoints, level+1)
+            pointsR, weightsR = qpoints(x1+d/2, x2, quadPoints, level+1)
         return pointsL+pointsR, weightsL+weightsR
 
     # create matrices
@@ -139,15 +146,17 @@ def runStudy(n, k, extra):
         Ke = np.zeros( ( k+1, k+1 ) )
         x1 = t[i]
         x2 = t[1+i]
-        points, weights = qpoints(x1,x2)
-        for j in range(len(points)):
-            shapes = lagrange.evaluateLagrangeBases(i, points[j], samppoints, 1, t)
+        pointsGLL, weightsGLL = qpoints(x1,x2,gllPoints)
+        pointsGL, weightsGL = qpoints(x1,x2,glPoints)
+        for j in range(len(pointsGL)):
+            shapesGL = lagrange.evaluateLagrangeBases(i, pointsGL[j], samppoints, 1, t)
+            shapesGLL = lagrange.evaluateLagrangeBases(i, pointsGLL[j], samppoints, 1, t)
             #shapes = evaluateLagrangeBases2(i, points[j], k, 1, t)
             
-            N = np.asarray(shapes[0])
-            B = np.asarray(shapes[1])
-            Me += np.outer(N, N) * weights[j]
-            Ke += np.outer(B, B) * weights[j]
+            N = np.asarray(shapesGLL[0])
+            B = np.asarray(shapesGL[1])
+            Me += np.outer(N, N) * weightsGLL[j]
+            Ke += np.outer(B, B) * weightsGL[j]
         eslice = slice(nval * i, nval * (i + 1))
         row[eslice] = np.broadcast_to( lm, (k+1, k+1) ).T.ravel()
         col[eslice] = np.broadcast_to( lm, (k+1, k+1) ).ravel()
@@ -184,14 +193,16 @@ def runStudy(n, k, extra):
     for i in range(fullM.shape[0]):
         diagM[i,i] = sum(fullM[i,:])
     
-    w = scipy.linalg.eigvals(fullK, diagM)    
+    w = scipy.linalg.eigvals(fullK, fullM)    
     w = np.sqrt(np.abs(w))
     w = np.sort(w)
-    #print(w)
+    print(w)
     
     dofs = fullM.shape[0]
-    
-    return dofs, w[1+5]
+        
+    wexact = (10*np.pi)/(1.2-2*extra)
+        
+    return dofs, find_nearest(w, wexact) # w[1+5]
     
     
 def plot(ptx,pty):
@@ -202,12 +213,12 @@ def plot(ptx,pty):
 figure, ax = plt.subplots()
 #ax.set_ylim(5, 500)
 
-extra = 0.0
+extra = 0.2
 
-wexact = (6*np.pi)/(1.2-2*extra)
+wexact = (10*np.pi)/(1.2-2*extra)
 
 for p in range(4):
-    nh = 6 #int(6.5-p)
+    nh = int(10.5-p)
     print("p = %d" % p)
     minw = [0]*nh
     errors = [0]*nh
@@ -221,13 +232,13 @@ for p in range(4):
 ax.legend()
 
 plt.rcParams['axes.titleweight'] = 'bold'
-#plt.title("consistent mass matrix")
-plt.title("lumped mass matrix")
+plt.title("consistent mass matrix")
+#plt.title("lumped mass matrix")
 plt.xlabel('degrees of freedom')  
 plt.ylabel('relative error in sixth eigenvalue ')  
 
-#plt.savefig('pfem_eigenvalue_convergence_consistent_20.pdf')
-plt.savefig('pfem_eigenvalue_convergence_lumped_20.pdf')
+plt.savefig('pfem_eigenvalue_convergence_consistent_20.pdf')
+#plt.savefig('pfem_eigenvalue_convergence_lumped_20.pdf')
 plt.show()
 
     
