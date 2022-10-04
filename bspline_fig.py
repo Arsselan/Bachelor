@@ -8,7 +8,7 @@ from scipy.interpolate import BSpline
 
 
 k = 3
-n = 6
+n = 12
 
 left = 0
 right = 1.2
@@ -33,10 +33,10 @@ for i in range(k+1):
 
 # plot
 print("Plotting...", flush=True)
-fig, (ax1, ax2) = plt.subplots(1, 2)
+fig, (ax1) = plt.subplots()
 
-ax1.set_xlim(left-0.1, right+0.1)
-ax1.set_ylim(-0.5, 1.5)
+ax1.set_xlim(left, right)
+ax1.set_ylim(-0.3, 1.1)
 
 x = np.linspace(left, right, 500)
 shapes = BSpline.design_matrix(x, t, k)
@@ -44,7 +44,6 @@ c = np.eye(len(t) - k - 1)
 derivative = BSpline(t, c, k).derivative()(x)
 for i in range(n+k):
     ax1.plot(x, shapes[:,[i]].toarray())
-    ax2.plot(x, derivative[:,[i]])
 
 for i in range(len(t)-2*k-1):
     x1 = t[k+i]
@@ -58,7 +57,6 @@ for i in range(len(t)-2*k-1):
         dy[j] = ders[1]
     for j in range(k+1):
         ax1.plot(xx,yy[:,j],'x')
-        ax2.plot(xx,dy[:,j],'x')
 
 ax1.plot(t, np.zeros(t.size), '-o')
 

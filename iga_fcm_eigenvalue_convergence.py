@@ -68,7 +68,7 @@ def runStudy(n, k, extra):
             N = np.asarray(shapes[0])
             B = np.asarray(shapes[1])
             Me += np.outer(N, N) * weights[j]
-            Ke += np.outer(B, B) * weights[j]        
+            Ke += np.outer(B, B) * weights[j]
         eslice = slice(nval * i, nval * (i + 1))
         row[eslice] = np.broadcast_to( lm, (k+1, k+1) ).T.ravel()
         col[eslice] = np.broadcast_to( lm, (k+1, k+1) ).ravel()
@@ -105,7 +105,7 @@ def runStudy(n, k, extra):
     for i in range(fullM.shape[0]):
         diagM[i,i] = sum(fullM[i,:])
     
-    w = scipy.linalg.eigvals(fullK, fullM)    
+    w = scipy.linalg.eigvals(fullK, diagM)    
     w = np.sqrt(np.abs(w))
     w = np.sort(w)
     #print(w)
@@ -123,9 +123,9 @@ def plot(ptx,pty):
 figure, ax = plt.subplots()
 #ax.set_ylim(5, 500)
 
-extra = 0.2
+extra = 0.20
 
-nh = 16
+nh = 8
 
 wexact = (6*np.pi)/(1.2-2*extra)
 
@@ -135,21 +135,21 @@ for p in range(4):
     errors = [0]*nh
     dofs = [0]*nh
     for i in range(nh):
-        dofs[i], minw[i] = runStudy(12*(i+1), p+1, extra)
+        dofs[i], minw[i] = runStudy(12*int(1.5**(i)), p+1, extra)
         errors[i] = np.abs(minw[i] - wexact) / wexact
         print("dof = %e, wmin = %e, , e = %e" % (dofs[i], minw[i], errors[i]))        
-    ax.semilogy(dofs, errors,'-o', label='p=' + str(p+1))
+    ax.loglog(dofs, errors,'-o', label='p=' + str(p+1))
 
 ax.legend()
 
 plt.rcParams['axes.titleweight'] = 'bold'
-plt.title("consistent mass matrix")
-#plt.title("lumped mass matrix")
+#plt.title("consistent mass matrix")
+plt.title("lumped mass matrix")
 plt.xlabel('degrees of freedom')  
 plt.ylabel('relative error in sixth eigenvalue ')  
 
-plt.savefig('eigenvalue_convergent_consistent.pdf')
-#plt.savefig('eigenvalue_convergent_lumped.pdf')
+#plt.savefig('eigenvalue_convergence_consistent_20.pdf')
+plt.savefig('eigenvalue_convergence_lumped_20.pdf')
 plt.show()
 
     

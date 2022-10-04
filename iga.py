@@ -7,8 +7,8 @@ import scipy.sparse.linalg
 from scipy.interpolate import BSpline
 
 
-k = 5
-n = 12
+k = 4
+n = 3
 
 left = 0
 right = 1.2

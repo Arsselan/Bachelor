@@ -7,6 +7,18 @@ import bspline
 from scipy.interpolate import BSpline
 
 
+def evaluateLagrangeBases(i, x, k, maxDerOrder, t):
+    lagrangeCoords = np.linspace(t[i], t[i+1], k + 1)
+    lagrangeValues = np.identity(k + 1)
+    lagrange = lambda j : scipy.interpolate.lagrange(lagrangeCoords, lagrangeValues[j])
+    shapesDiff0 = [lagrange(j) for j in range( k + 1 )]    
+    shapesDiff1 = [np.polyder(shape) for shape in shapesDiff0];
+    
+    diff0 = np.array([shape(x) for shape in shapesDiff0])
+    diff1 = np.array([shape(x) for shape in shapesDiff1])
+    
+    return [ diff0, diff1 ]
+
 def runStudy(k, extra):
     #k = 1
     n = 12
@@ -24,25 +36,10 @@ def runStudy(k, extra):
 
     print("Meshing...", flush=True)
 
-    # create knot span
+    # create nodes
     length = right - left
-    nextra = length / n * k
-    t = np.linspace(left-nextra, right+nextra, n+1+2*k)
-    for i in range(k+1):
-        t[i] = left
-        t[-i-1] = right
+    t = np.linspace(left, right, n+1)
 
-    #t[5] = t[6]
-    lower = max(0,k-1)
-    for i in range(n):
-        for j in range(lower):
-            t = np.insert(t, k+n-i-1, t[k+n-i-1])
-    n = n + (lower)*n
-    print(t)
-    #t = np.insert(t, 5, t[5])
-    #t = np.insert(t, 4, t[4])
-    #t = np.insert(t, 4, t[4])
-    #n=n+4
 
     # create quadrature points
     gaussPoints = np.polynomial.legendre.leggauss(k+1)
@@ -68,20 +65,17 @@ def runStudy(k, extra):
     valK = np.zeros(nval*n)
 
     for i in range(n):
-        lm = range(i, i+k+1)
+        lm = range(i*(k), (i+1)*(k)+1)
         #print("lm %d: " % (i) + str(list(lm)))
         Me = np.zeros( ( k+1, k+1 ) ) 
         Ke = np.zeros( ( k+1, k+1 ) )
-        x1 = t[k+i]
-        x2 = t[k+1+i]
-        if x1==x2:
-            continue
+        x1 = t[i]
+        x2 = t[1+i]
         points, weights = qpoints(x1,x2)
         for j in range(len(points)):
-            shapes = bspline.evaluateBSplineBases(k+i, points[j], k, 1, t)
+            shapes = evaluateLagrangeBases(i, points[j], k, 1, t)
             N = np.asarray(shapes[0])
             B = np.asarray(shapes[1])
-            
             Me += np.outer(N, N) * weights[j]
             Ke += np.outer(B, B) * weights[j]        
         eslice = slice(nval * i, nval * (i + 1))
@@ -134,8 +128,8 @@ def plot(ptx,pty):
     plt.show()
     
 figure, ax = plt.subplots()
-ax.set_ylim(5, 50)
-for p in range(6):
+ax.set_ylim(5, 500)
+for p in range(4):
     ne = 11
     extras = list(np.linspace(0, 0.099, ne)) + list(np.linspace(0.1, 0.199, ne)) + list(np.linspace(0.2, 0.299, ne)) + [0.3]
     ne = len(extras)
@@ -148,11 +142,11 @@ for p in range(6):
 ax.legend()
 
 plt.rcParams['axes.titleweight'] = 'bold'
-plt.title("consistent mass matrix")
+plt.title("lumped mass matrix")
 plt.xlabel('ficticious domain size')  
 plt.ylabel('heighest eigenvalue')  
 
-plt.savefig('eigenvalue_consistent.pdf')  
+plt.savefig('pfem_eigenvalue_lumped.pdf')  
 plt.show()
 
     
