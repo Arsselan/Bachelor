@@ -4,10 +4,73 @@ import matplotlib.animation as anim
 import scipy.sparse
 import scipy.sparse.linalg
 import bspline
-from scipy.interpolate import BSpline
+import lagrange
 
 
-def evaluateLagrangeBases(i, x, k, maxDerOrder, t):
+# Gauss-Lobatto points and weights taken from here:
+# https://colab.research.google.com/github/caiociardelli/sphglltools/blob/main/doc/L3_Gauss_Lobatto_Legendre_quadrature.ipynb
+def lgP (n, xi):
+  if n == 0:
+    return np.ones (xi.size)
+  
+  elif n == 1:
+    return xi
+
+  else:
+    fP = np.ones (xi.size); sP = xi.copy (); nP = np.empty (xi.size)
+    for i in range (2, n + 1):
+      nP = ((2 * i - 1) * xi * sP - (i - 1) * fP) / i
+      fP = sP; sP = nP
+
+    return nP
+    
+def GLL(n, epsilon = 1e-15):
+  if n < 2:
+    print('Error: n must be larger than 1')
+  
+  else:
+    x = np.empty (n)
+    w = np.empty (n)
+    
+    x[0] = -1; x[n - 1] = 1
+    w[0] = w[0] = 2.0 / ((n * (n - 1))); w[n - 1] = w[0];
+    
+    n_2 = n // 2
+    
+    dLgP  = lambda n, xi: n * (lgP (n - 1, xi) - xi * lgP (n, xi)) / (1 - xi ** 2)
+    d2LgP = lambda n, xi: (2 * xi * dLgP (n, xi) - n * (n + 1) * lgP (n, xi)) / (1 - xi ** 2)
+    d3LgP = lambda n, xi: (4 * xi * d2LgP (n, xi) - (n * (n + 1) - 2) * dLgP (n, xi)) / (1 - xi ** 2)                             
+                                      
+    for i in range (1, n_2):
+      xi = (1 - (3 * (n - 2)) / (8 * (n - 1) ** 3)) *\
+           np.cos ((4 * i + 1) * np.pi / (4 * (n - 1) + 1))
+      
+      error = 1.0
+      
+      while error > epsilon:
+        y  =  dLgP (n - 1, xi)
+        y1 = d2LgP (n - 1, xi)
+        y2 = d3LgP (n - 1, xi)
+        
+        dx = 2 * y * y1 / (2 * y1 ** 2 - y * y2)
+        
+        xi -= dx
+        error = abs (dx)
+        
+      x[i] = -xi
+      x[n - i - 1] =  xi
+      
+      w[i] = 2 / (n * (n - 1) * lgP (n - 1, x[i]) ** 2)
+      w[n - i - 1] = w[i]
+    
+    if n % 2 != 0:
+      x[n_2] = 0;
+      w[n_2] = 2.0 / ((n * (n - 1)) * lgP (n - 1, np.array (x[n_2])) ** 2)
+    
+  return np.array(x), np.array(w)
+  
+
+def evaluateLagrangeBasesX(i, x, k, maxDerOrder, t):
     lagrangeCoords = np.linspace(t[i], t[i+1], k + 1)
     lagrangeValues = np.identity(k + 1)
     lagrange = lambda j : scipy.interpolate.lagrange(lagrangeCoords, lagrangeValues[j])
@@ -27,7 +90,11 @@ def runStudy(n, k, extra):
     left = 0
     right = 1.2
     #extra = 0.0
-
+    
+    samppoints = np.linspace(-1, 1, k+1);
+    gllPoints = GLL(k+1)
+    samppoints = gllPoints[0]
+    
     def salpha(x):
         if x>=left+extra and x<=right-extra:
             return 1.0
@@ -43,6 +110,7 @@ def runStudy(n, k, extra):
 
     # create quadrature points
     gaussPoints = np.polynomial.legendre.leggauss(k+1)
+    #gaussPoints = GLL(k+1)
     def qpoints(x1, x2, level=0):
         d = x2-x1;
         if salpha(x1)==salpha(x2) or level>=depth:
@@ -73,7 +141,9 @@ def runStudy(n, k, extra):
         x2 = t[1+i]
         points, weights = qpoints(x1,x2)
         for j in range(len(points)):
-            shapes = evaluateLagrangeBases(i, points[j], k, 1, t)
+            shapes = lagrange.evaluateLagrangeBases(i, points[j], samppoints, 1, t)
+            #shapes = evaluateLagrangeBases2(i, points[j], k, 1, t)
+            
             N = np.asarray(shapes[0])
             B = np.asarray(shapes[1])
             Me += np.outer(N, N) * weights[j]
@@ -132,14 +202,12 @@ def plot(ptx,pty):
 figure, ax = plt.subplots()
 #ax.set_ylim(5, 500)
 
-extra = 0.2
-
-
+extra = 0.0
 
 wexact = (6*np.pi)/(1.2-2*extra)
 
 for p in range(4):
-    nh = int(6.5-p)
+    nh = 6 #int(6.5-p)
     print("p = %d" % p)
     minw = [0]*nh
     errors = [0]*nh
