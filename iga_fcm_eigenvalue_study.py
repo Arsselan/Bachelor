@@ -33,7 +33,7 @@ def runStudy(k, extra):
         t[-i-1] = right
 
     #t[5] = t[6]
-    lower = max(0,k-1)
+    lower = min(0,k-1)
     for i in range(n):
         for j in range(lower):
             t = np.insert(t, k+n-i-1, t[k+n-i-1])

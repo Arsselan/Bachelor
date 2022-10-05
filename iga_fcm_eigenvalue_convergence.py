@@ -111,7 +111,7 @@ def runStudy(n, k, extra):
     for i in range(fullM.shape[0]):
         diagM[i,i] = sum(fullM[i,:])
     
-    w = scipy.linalg.eigvals(fullK, fullM)    
+    w = scipy.linalg.eigvals(fullK, diagM)    
     w = np.sqrt(np.abs(w))
     w = np.sort(w)
     #print(w)

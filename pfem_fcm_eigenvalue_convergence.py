@@ -91,7 +91,7 @@ def find_nearest(array, value):
 def runStudy(n, k, extra):
     #k = 1
     #n = 12
-    depth = 10
+    depth = 40
 
     left = 0
     right = 1.2
@@ -116,21 +116,8 @@ def runStudy(n, k, extra):
 
     # create quadrature points
     glPoints = np.polynomial.legendre.leggauss(k+1)
-    gllPoints = np.polynomial.legendre.leggauss(k+1)
-    #gllPoints = GLL(k+1)
-    def qpoints(x1, x2, quadPoints, level=0):
-        d = x2-x1;
-        if salpha(x1)==salpha(x2) or level>=depth:
-            points = [0]*(k+1)
-            weights = [0]*(k+1)
-            for j in range(k+1):
-                points[j] = x1 + d * 0.5 * ( quadPoints[0][j] + 1 )
-                weights[j] = quadPoints[1][j] * d / 2 * salpha(points[j])
-            return points, weights
-        else:
-            pointsL, weightsL = qpoints(x1, x1+d/2, quadPoints, level+1)
-            pointsR, weightsR = qpoints(x1+d/2, x2, quadPoints, level+1)
-        return pointsL+pointsR, weightsL+weightsR
+    #gllPoints = np.polynomial.legendre.leggauss(k+1)
+    gllPoints = GLL(k+1)
 
     # create matrices
     nval = (k+1)*(k+1)
@@ -193,7 +180,7 @@ def runStudy(n, k, extra):
     for i in range(fullM.shape[0]):
         diagM[i,i] = sum(fullM[i,:])
     
-    w = scipy.linalg.eigvals(fullK, fullM)    
+    w = scipy.linalg.eigvals(fullK, diagM)    
     w = np.sqrt(np.abs(w))
     w = np.sort(w)
     print(w)
