@@ -61,7 +61,7 @@ class SpaceTreeQuadrature:
             weights = [0]*self.nPoints
             for j in range(self.nPoints):
                 points[j] = x1 + d * 0.5 * ( self.localPoints[j] + 1 )
-                weights[j] = self.localWeights[j] * d / 2 * self.domain.alpha(points[j])
+                weights[j] = self.localWeights[j] * d / 2
             return points, weights, cuts
         else:
             cuts = cuts + [x1+d/2]
@@ -102,9 +102,19 @@ class SplineAnsatz:
         return bspline.evaluateBSplineBases(iSpan, pos, self.p, order, self.knots)
     
     def locationMap(self, iElement):
-        iShape = (self.spanIndex(iElement) - self.p)# * (self.p - self.k)
+        iShape = self.spanIndex(iElement) - self.p
         return range(iShape, iShape+self.p+1)
+        
+    def nDof(self):
+        return self.grid.nElements * (self.p - self.k) + self.p
 
+    def interpolate(self, pos, globalVector):
+        iElement = self.grid.elementIndex(pos)
+        iSpan = self.spanIndex(iElement)
+        basis = bspline.evaluateBSplineBases(iSpan, pos, self.p, 0, self.knots)
+        lm = locationMap(self, iElement)
+        return basis.dot(globalVector[lm])
+    
 class LagrangeAnsatz:
     def __init__(self, grid, points):
         self.grid = grid
@@ -126,38 +136,42 @@ class LagrangeAnsatz:
     def locationMap(self, iElement):
         iShape = iElement*self.p
         return range(iShape, iShape+self.p+1)
-        
+                
+    def nDof(self):
+        return self.grid.nElements * self.p + 1
     
 class TripletSystem:
-    def __init__(self, ansatz, quadrature, lump = False):
+    def __init__(self, ansatz, quadrature, lump = False, bodyLoad = lambda x : 0.0 ):
         self.lump = lump
         
         p = ansatz.p
         grid = ansatz.grid
         n = grid.nElements
+        alpha = quadrature.domain.alpha
         
         nval = (p+1)*(p+1)
         row  = np.zeros(nval*n, dtype=np.uint)
         col  = np.zeros(nval*n, dtype=np.uint)
         valM = np.zeros(nval*n)
         valK = np.zeros(nval*n)
+        F = np.zeros( ( ansatz.nDof(), ) )
         
         for i in range(n):
             lm = ansatz.locationMap(i)
-            #print("lm %d: " % (i) + str(list(lm)))
             Me = np.zeros( ( p+1, p+1 ) ) 
             Ke = np.zeros( ( p+1, p+1 ) )
+            Fe = np.zeros( p+1 )
             x1 = grid.pos(i, -1)
             x2 = grid.pos(i, 1)
             points = quadrature.points[i]
             weights = quadrature.weights[i]
             for j in range(len(points)):
                 shapes = ansatz.evaluate(points[j], 1)
-                #print(shapes[0])
                 N = np.asarray(shapes[0])
                 B = np.asarray(shapes[1])
-                Me += np.outer(N, N) * weights[j]
-                Ke += np.outer(B, B) * weights[j]
+                Me += np.outer(N, N) * weights[j] * alpha(points[j])
+                Ke += np.outer(B, B) * weights[j] * alpha(points[j])
+                Fe += N * bodyLoad(points[j]) * weights[j] * alpha(points[j])
                 
             eslice = slice(nval * i, nval * (i + 1))
             row[eslice] = np.broadcast_to( lm, (p+1, p+1) ).T.ravel()
@@ -171,17 +185,20 @@ class TripletSystem:
                 valM[eslice] = diagMe.ravel()
             else:                
                 valM[eslice] = Me.ravel()
-
+            
+            F[lm] += Fe
         
+        self.ansatz = ansatz
         self.valM = valM
         self.valK = valK
         self.row = row
         self.col = col
+        self.F = F
     
     def nDof(self):
         return int(max(self.row) + 1)
     
-    def findZeroDof(self):
+    def findZeroDof(self, tol=0):
         nDof = self.nDof()
         diag = [0]*nDof
         nVals = len(self.row) 
@@ -190,13 +207,15 @@ class TripletSystem:
             diag[iRow] += self.valM[i]
         self.zeroDof = []
         self.dofMap = [0]*nDof
-        self.nNonZeroDof = 0
+        nNonZeroDof = 0
+        self.nonZeroDof = []
         for i in range(nDof):
-            if diag[i] == 0:
+            if diag[i] <= tol:
                 self.zeroDof.append(i)
             else:
-                self.dofMap[i] = self.nNonZeroDof
-                self.nNonZeroDof += 1
+                self.dofMap[i] = nNonZeroDof
+                nNonZeroDof += 1
+                self.nonZeroDof.append(i)
     
     def getReducedRowAndCol(self):
         if hasattr(self, 'dofMap'):
@@ -225,6 +244,13 @@ class TripletSystem:
         K = scipy.sparse.coo_matrix( (self.valK, (row, col)) ).tocsc( )
         return M, K
         
+    def getFullVector(self, reducedVector):
+        fullVector = np.zeros(self.ansatz.nDof())
+        fullVector[self.nonZeroDof] = reducedVector
+        return fullVector
+
+    def getReducedVector(self, fullVector):
+        return fullVector[self.nonZeroDof]
 
 def removeZeroDof(fullK, fullM):
     deleted = 1

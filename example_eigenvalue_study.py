@@ -3,67 +3,109 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as anim
 import scipy.sparse
 import scipy.sparse.linalg
-
+import bspline
+#from scipy.interpolate import BSpline
 
 from waves1d import *
 
-p = 3
-n = 5
-k = p-1
+# problem
+left = 0
+right = 1.2
 
-grid = createGrid(0.0, L, n)
+#method
+ansatzType = 'Lagrange'
+#ansatzType = 'Spline'
+continuity = '0'
+lump = True
+depth = 40
 
-ansatz = createSplineAnsatz(grid, p, k)
-ansatz = createLagrangeAnsatz(grid, np.linspace(-1, 1, p+1)
-ansatz = createLagrangeAnsatz(grid, getGllPoints(p+1))
-ansatz = createLegendreAnsatz(grid, p+1)
+# analysis
+n = 12
+axLimitY = 500
 
-points = createGaussLegendrePointsAndWeights(p+1)
-points = createGaussLobattoPointsAndWeights(p+1)
-
-def domain(x):
-    if x>=extra or x<=L-extra:
-        return 1
-    else
+if ansatzType == 'Lagrange':
+    continuity = '0'
+        
+        
+def runStudy(p, extra):
+    
+    # create grid and domain
+    grid = UniformGrid(left, right, n)
+    
+    def alpha(x):
+        if x>=left+extra and x<=right-extra:
+            return 1.0
         return 0
+    
+    domain = Domain(alpha)
+        
+    # create ansatz
+    if ansatzType == 'Spline':
+        if continuity == 'p-1':
+            k = p-1
+        else:
+            k = int(continuity)
+        k = max(0, min(k, p-1))
+        ansatz = SplineAnsatz(grid, p, k)
+    elif ansatzType == 'Lagrange':
+        gllPoints = GLL(p+1)
+        ansatz = LagrangeAnsatz(grid, gllPoints[0])
+    else:
+        print("Error! Choose ansatzType 'Spline' or 'Lagrange'")
+    
+    #print(ansatz.knots)
 
-cut = 0.4
-def domainF(x):
-    if x>=cut:
-        return 1
-    else
-        return 0
+    # create quadrature points
+    gaussPoints = np.polynomial.legendre.leggauss(p+1)
+    quadrature = SpaceTreeQuadrature(grid, gaussPoints, domain, depth)
 
-def domainS(x):
-    if x<=cut:
-        return 1
-    else
-        return 0
+    # create system
+    system = TripletSystem(ansatz, quadrature, lump)
+    system.findZeroDof(0.0)
 
+    # solve sparse
+    #M, K = system.createSparseMatrices()
+    #w = scipy.sparse.linalg.eigs(K, K.shape[0]-2, M.toarray(), which='LM', return_eigenvectors=False)
 
-quadrature = createSpaceTreeQuadrature(grid, domain, points)
-quadrature = createMomentFittingQuadrature(grid, domain)
+    # solve dense
+    fullM, fullK = system.createDenseMatrices()
+    #removeZeroDof(fullK, fullM)
+    
+    w = scipy.linalg.eigvals(fullK, fullM)    
+    
+    w = np.sqrt(np.abs(w))
+    w = np.sort(w)
 
-# uncoupled
-tripletsM = assembleMassMatrixTriplets(rho, ansatz, quadrature)
-tripletsK = assembleStiffnessMatrixTriplets(E*A, ansatz)
+    return max(w)
+    
 
-M = assembleSparseMatrix(tripletsM)
-K = assembleSparseMatrix(trimplesK)
+figure, ax = plt.subplots()
+ax.set_ylim(5, axLimitY)
+for p in range(4):
+    ne = 11
+    extras = list(np.linspace(0, 0.099, ne)) + list(np.linspace(0.1, 0.199, ne)) + list(np.linspace(0.2, 0.299, ne)) + [0.3]
+    ne = len(extras)
+    maxw = [0]*ne
+    for i in range(ne):
+        maxw[i] = runStudy(p+1, extras[i])
+        print("e = %e, wmax = %e" % (extras[i], maxw[i]))        
+    ax.plot(extras, maxw,'-o', label='p=' + str(p+1))
 
-# coupled
-tripletsMF = assembleMassMatrixTriplets(rho, ansatz, quadratureMF)
-tripletsKF = assembleStiffnessMatrixTriplets(E*A, ansatz, quadratureMF)
+ax.legend()
 
-tripletsMS = assembleMassMatrixTriplets(rho, ansatz, quadratureS)
-tripletsKS = assembleStiffnessMatrixTriplets(rho*c*c, ansatz, quadratureS)
+plt.rcParams['axes.titleweight'] = 'bold'
 
-M = assembleSparseMatrix(tripletsMF, tripletsMS)
-K = assembleSparseMatrix(tripletsKF, tripletsKS)
-C = assembleSparseMatrix(tripletsCF, tripletsCF)
+title = ansatzType + ' C' + str(continuity)
+if lump:
+    title = title + ' lumped'
+else:
+    title = title + ' consistent'
+plt.title(title)
 
-nOmega = K.shape[0]-2
-omega = scipy.sparse.linalg.eigs(K, nOmega, M, which='SM', return_eigenvectors=False)
+plt.xlabel('ficticious domain size')  
+plt.ylabel('largest eigenvalue')  
 
+plt.savefig(title.replace(' ', '_') + '.pdf')
+plt.show()
 
-
+    

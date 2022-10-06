@@ -15,7 +15,7 @@ d = Domain(salpha)
 
 g = UniformGrid(0, 5, 10)
 
-a = SplineAnsatz(g, 3, 2)
+#a = SplineAnsatz(g, 3, 2)
 gllPoints = GLL(4)
 a = LagrangeAnsatz(g, gllPoints[0])
 
