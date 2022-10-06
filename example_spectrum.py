@@ -86,7 +86,7 @@ def createLegend():
 
 p = 3
 n = 20
-extra = 0.19
+extra = 0.20
 
 indices = np.linspace(0, nw, nw+1)
 wexact = (indices*np.pi)/(1.2-2*extra)   
@@ -105,7 +105,7 @@ ax.plot(indices, wnum,'--o', label=createLegend())
 
 
 ansatzType = 'Spline'
-continuity = 'p-1'
+continuity = '0'
 lump = True
 wnum = runStudy(n, p, extra)
 wnum = wnum[0:nw+1]
@@ -120,7 +120,7 @@ ax.plot(indices, wnum,'--x', label=createLegend())
 
 
 ansatzType = 'Spline'
-continuity = 'p-1'
+continuity = '0'
 lump = False
 wnum = runStudy(n, p, extra)
 wnum = wnum[0:nw+1]

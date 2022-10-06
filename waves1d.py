@@ -102,18 +102,20 @@ class SplineAnsatz:
         return bspline.evaluateBSplineBases(iSpan, pos, self.p, order, self.knots)
     
     def locationMap(self, iElement):
-        iShape = self.spanIndex(iElement) - self.p
+        iShape = iElement*(self.p - self.k)
+        iShape2 = self.spanIndex(iElement) - self.p
+        print(iShape, iShape2)
         return range(iShape, iShape+self.p+1)
         
     def nDof(self):
-        return self.grid.nElements * (self.p - self.k) + self.p
-
+        return self.grid.nElements * (self.p - self.k) + self.k + 1
+        
     def interpolate(self, pos, globalVector):
         iElement = self.grid.elementIndex(pos)
         iSpan = self.spanIndex(iElement)
         basis = bspline.evaluateBSplineBases(iSpan, pos, self.p, 0, self.knots)
-        lm = locationMap(self, iElement)
-        return basis.dot(globalVector[lm])
+        lm = self.locationMap(iElement)
+        return np.array(basis).dot(globalVector[lm])
     
 class LagrangeAnsatz:
     def __init__(self, grid, points):
@@ -139,7 +141,8 @@ class LagrangeAnsatz:
                 
     def nDof(self):
         return self.grid.nElements * self.p + 1
-    
+      
+
 class TripletSystem:
     def __init__(self, ansatz, quadrature, lump = False, bodyLoad = lambda x : 0.0 ):
         self.lump = lump

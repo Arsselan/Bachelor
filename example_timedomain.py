@@ -15,7 +15,7 @@ right = 2.0
 #method
 #ansatzType = 'Lagrange'
 ansatzType = 'Spline'
-continuity = 'p-1'
+continuity = '0'
 lump = True
 depth = 40
 
@@ -23,7 +23,7 @@ depth = 40
 nw = 10
 
 p = 3
-n = 40
+n = 100
 extra = 0.0
 
 tmax = 8.4
@@ -35,7 +35,7 @@ dt = tmax / nt
 grid = UniformGrid(left, right, n)
 
 def alpha(x):
-    if x>=left+extra and x<=right-extra-0.15:
+    if x>=left+extra and x<=right-extra-grid.elementSize * 0:
         return 1.0
     return 0
 
@@ -95,7 +95,7 @@ critDeltaT = 2 / abs(w)
 print("Critical time step size is %e" % critDeltaT)
 print("Chosen time step size is %e" % dt)
 
-dt = critDeltaT * 0.9
+dt = critDeltaT * 0.1
 nt = int(tmax / dt + 0.5)
 dt = tmax / nt
 print("Corrected time step size is %e" % dt)
@@ -108,12 +108,13 @@ print( "Time integration ... ", flush=True )
 
 u = np.zeros( ( nt + 1, M.shape[0] ) )
 fullU = np.zeros( ( nt + 1, ansatz.nDof() ) )
-
+evalU = 0*fullU
 
 for i in range( 2, nt + 1 ):
     u[i] = factorized.solve( M * ( 2 * u[i - 1] - u[i - 2] ) + dt**2 * ( F * ft( i * dt ) - K * u[i - 1] ) )
     fullU[i] = system.getFullVector(u[i])
-
+    #for j in range(ansatz.nDof()):
+    #    evalU[i][j] = ansatz.interpolate( grid.left + j*grid.length/grid.nElements/(p-k), fullU[i])
 
 # Plot animation
 figure, ax = plt.subplots()
@@ -121,6 +122,9 @@ ax.set_xlim(grid.left, grid.right)
 ax.set_ylim(-0.5, 2.1)
 line,  = ax.plot(0, 0) 
 line.set_xdata( np.linspace( grid.left, grid.right, ansatz.nDof() ) )
+
+line2,  = ax.plot(0, 0) 
+line2.set_xdata( np.linspace( grid.left, grid.right, ansatz.nDof() ) )
 
 #ax.plot([0, xmax],[1, 1], '--b')
 #ax.plot([interface, interface],[-0.5, 2.1], '--r')
@@ -138,6 +142,7 @@ animationSpeed = 4
 
 def prepareFrame(i):
     line.set_ydata( fullU[int( round(i / tmax * nt) )] )
+    line2.set_ydata( evalU[int( round(i / tmax * nt) )] )
     return line,
 
 frames = np.linspace(0, tmax, round( tmax * 60 / animationSpeed))

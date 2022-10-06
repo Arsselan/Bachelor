@@ -15,9 +15,9 @@ extra = 0.20
 eigenvalue = 6
 
 #method
-ansatzType = 'Lagrange'
-#ansatzType = 'Spline'
-continuity = '0'
+#ansatzType = 'Lagrange'
+ansatzType = 'Spline'
+continuity = 'p-1'
 lump = False
 depth = 40
 
