@@ -103,8 +103,6 @@ class SplineAnsatz:
     
     def locationMap(self, iElement):
         iShape = iElement*(self.p - self.k)
-        iShape2 = self.spanIndex(iElement) - self.p
-        print(iShape, iShape2)
         return range(iShape, iShape+self.p+1)
         
     def nDof(self):
@@ -142,6 +140,12 @@ class LagrangeAnsatz:
     def nDof(self):
         return self.grid.nElements * self.p + 1
       
+    def interpolate(self, pos, globalVector):
+        iElement = self.grid.elementIndex(pos)
+        basis = lagrange.evaluateLagrangeBases(iElement, pos, self.points, 0, self.knots)
+        lm = self.locationMap(iElement)
+        return np.array(basis).dot(globalVector[lm])
+        
 
 class TripletSystem:
     def __init__(self, ansatz, quadrature, lump = False, bodyLoad = lambda x : 0.0 ):

@@ -18,7 +18,7 @@ eigenvalue = 6
 #ansatzType = 'Lagrange'
 ansatzType = 'Spline'
 continuity = 'p-1'
-lump = False
+lump = True
 depth = 40
 
 #eigenvalueSearch = 'nearest'

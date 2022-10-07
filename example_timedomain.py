@@ -13,16 +13,16 @@ left = 0
 right = 2.0
 
 #method
-#ansatzType = 'Lagrange'
-ansatzType = 'Spline'
-continuity = '0'
-lump = True
+ansatzType = 'Lagrange'
+#ansatzType = 'Spline'
+continuity = '1'
+lump = False
 depth = 40
 
 # analysis
 nw = 10
 
-p = 3
+p = 1
 n = 100
 extra = 0.0
 
@@ -31,13 +31,24 @@ nt = 1000
 dt = tmax / nt
 
 
+# manufactured solution
+#u(x,t) = cos(2*pi*x/L) * sin(2*pi*t)
+#u'(x,t) = -2*pi*/L*sin(2*pi*x/L) * sin(2*pi*t)
+#u''(x,t) = -4*pi^2/L^2*cos(2*pi*x/L)  * sin(2*pi*t)
+#dudt(x,t) = cos(2*pi*x/L) * 2*pi*cos(2*pi*t)
+#ddudt^2(x,t) = -cos(2*pi*x/L) * 4*pi^2*sin(2*pi*t)
+
+
 # create grid and domain
 grid = UniformGrid(left, right, n)
+rightBoundary = right-extra-grid.elementSize * 45
+L = rightBoundary
+pi = np.pi
 
 def alpha(x):
-    if x>=left+extra and x<=right-extra-grid.elementSize * 0:
+    if x>=left+extra and x<=rightBoundary:
         return 1.0
-    return 0
+    return 1e-20
 
 domain = Domain(alpha)
     
@@ -48,8 +59,19 @@ t0 = 1.0 / frequency
 sigmaT = 1.0 / ( 2.0 * np.pi * frequency )
 sigmaS = 0.03
 
-ft = lambda t : -( t - t0 ) / ( np.sqrt( 2 * np.pi ) * sigmaT**3 ) * np.exp( -( t - t0 )**2 / ( 2 * sigmaT**2 ) )
-fx = lambda x : 0.25 * alpha( x ) / np.sqrt( 2 * np.pi * sigmaS**2 ) * np.exp( -x**2 / ( 2 * sigmaS**2 ) )
+#ft = lambda t : -( t - t0 ) / ( np.sqrt( 2 * np.pi ) * sigmaT**3 ) * np.exp( -( t - t0 )**2 / ( 2 * sigmaT**2 ) )
+#fx = lambda x : 0.25 * alpha( x ) / np.sqrt( 2 * np.pi * sigmaS**2 ) * np.exp( -x**2 / ( 2 * sigmaS**2 ) )
+
+
+def fx(x):
+    return np.cos(2*pi*x/L)
+    
+def ft(t):
+    return -1e-3 * 4*pi**2 * ( np.sin(2*pi*t) + 1/L**2 * np.sin(2*pi*t) )
+    
+def fxt(x,t):
+    return fx(x)*ft(t)
+
 
 if False:
     xx = np.linspace(left, right, 100)
@@ -110,21 +132,26 @@ u = np.zeros( ( nt + 1, M.shape[0] ) )
 fullU = np.zeros( ( nt + 1, ansatz.nDof() ) )
 evalU = 0*fullU
 
+nodes = np.linspace( grid.left, grid.right, ansatz.nDof() )
+
 for i in range( 2, nt + 1 ):
     u[i] = factorized.solve( M * ( 2 * u[i - 1] - u[i - 2] ) + dt**2 * ( F * ft( i * dt ) - K * u[i - 1] ) )
     fullU[i] = system.getFullVector(u[i])
-    #for j in range(ansatz.nDof()):
-    #    evalU[i][j] = ansatz.interpolate( grid.left + j*grid.length/grid.nElements/(p-k), fullU[i])
+    for j in range(ansatz.nDof()):
+        evalU[i][j] = ansatz.interpolate( nodes[j], fullU[i])
 
 # Plot animation
 figure, ax = plt.subplots()
-ax.set_xlim(grid.left, grid.right)
+ax.set_xlim(grid.left-1, grid.right+1)
 ax.set_ylim(-0.5, 2.1)
+
+ax.plot([rightBoundary, rightBoundary], [-0.1, 0.1], '--')
+
 line,  = ax.plot(0, 0) 
 line.set_xdata( np.linspace( grid.left, grid.right, ansatz.nDof() ) )
 
 line2,  = ax.plot(0, 0) 
-line2.set_xdata( np.linspace( grid.left, grid.right, ansatz.nDof() ) )
+line2.set_xdata( nodes )
 
 #ax.plot([0, xmax],[1, 1], '--b')
 #ax.plot([interface, interface],[-0.5, 2.1], '--r')
@@ -146,7 +173,7 @@ def prepareFrame(i):
     return line,
 
 frames = np.linspace(0, tmax, round( tmax * 60 / animationSpeed))
-animation = anim.FuncAnimation(figure, func=prepareFrame, frames=frames, interval=1000/60, repeat=False)
+animation = anim.FuncAnimation(figure, func=prepareFrame, frames=frames, interval=1000/60, repeat=True)
                           
 plt.show()
 
