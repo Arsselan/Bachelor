@@ -115,6 +115,24 @@ class SplineAnsatz:
         lm = self.locationMap(iElement)
         return np.array(basis).dot(globalVector[lm])
     
+    def interpolationMatrix(self, points):
+        n = len(points)
+        nval = (self.p+1)
+        row = np.zeros(nval*n, dtype=np.uint)
+        col = np.zeros(nval*n, dtype=np.uint)
+        val = np.zeros(nval*n)
+        for i in range(n):
+            iElement = self.grid.elementIndex(points[i])
+            iSpan = self.spanIndex(iElement)
+            basis = bspline.evaluateBSplineBases(iSpan, points[i], self.p, 0, self.knots)
+            lm = self.locationMap(iElement)
+            pslice = slice(nval * i, nval * (i + 1))
+            row[pslice] = i
+            col[pslice] = lm
+            val[pslice] = basis[0]
+        return scipy.sparse.coo_matrix( (val, (row, col)), shape=(n, self.nDof()) ).tocsc( )
+        
+
 class LagrangeAnsatz:
     def __init__(self, grid, points):
         self.grid = grid
@@ -146,7 +164,22 @@ class LagrangeAnsatz:
         lm = self.locationMap(iElement)
         return np.array(basis).dot(globalVector[lm])
         
-
+    def interpolationMatrix(self, points):
+        n = len(points)
+        nval = (self.p+1)
+        row = np.zeros(nval*n, dtype=np.uint)
+        col = np.zeros(nval*n, dtype=np.uint)
+        val = np.zeros(nval*n)
+        for i in range(n):
+            iElement = self.grid.elementIndex(points[i])
+            basis = lagrange.evaluateLagrangeBases(iElement, points[i], self.points, 0, self.knots)
+            lm = self.locationMap(iElement)
+            pslice = slice(nval * i, nval * (i + 1))
+            row[pslice] = i
+            col[pslice] = lm
+            val[pslice] = basis[0]
+        return scipy.sparse.coo_matrix( (val, (row, col)), shape=(n, self.nDof()) ).tocsc( )
+            
 class TripletSystem:
     def __init__(self, ansatz, quadrature, lump = False, bodyLoad = lambda x : 0.0 ):
         self.lump = lump
