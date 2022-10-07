@@ -22,7 +22,7 @@ lump = False
 depth = 40
 
 p = 4
-n = 200
+n = 25
 
 tmax = 1.78
 nt = 1000
@@ -31,7 +31,7 @@ dt = tmax / nt
 
 # create grid and domain
 grid = UniformGrid(left, right, n)
-rightBoundary = right-extra-grid.elementSize * 45.5*1
+rightBoundary = right-extra-grid.elementSize * 0.5*0
 L = rightBoundary
 pi = np.pi
 
@@ -158,30 +158,31 @@ fullU = np.zeros( ( nt + 1, ansatz.nDof() ) )
 evalU = 0*fullU
 
 nodes = np.linspace( grid.left, grid.right, ansatz.nDof() )
+I = ansatz.interpolationMatrix(nodes)
+
+nodes2 = np.linspace( grid.left, rightBoundary, 1000 )
+I2 = ansatz.interpolationMatrix( nodes2 )
 
 #printProgressBar(0, nt+1, prefix = 'Progress:', suffix = 'Complete', length = 50)
 
-I = ansatz.interpolationMatrix(nodes)
+errorSum = 0
 for i in range( 2, nt + 1 ):
     u[i] = factorized.solve( M * ( 2 * u[i - 1] - u[i - 2] ) + dt**2 * ( F * ft( i * dt ) - K * u[i - 1] ) )
     fullU[i] = system.getFullVector(u[i])
     evalU[i] = I*fullU[i]
-    
-    #for j in range(ansatz.nDof()):
-    #    evalU[i][j] = ansatz.interpolate( nodes[j], fullU[i])
+    evalU2 = I2 * fullU[i]
+    errorSum += dt*np.linalg.norm( (evalU2 - uxt(nodes2, (i+1)*dt ))/system.nDof() )
         
     #if i % int(nt / 100) == 0:
     #    print( np.linalg.norm(evalU[i] - uxt(nodes, i*dt )) )
         #printProgressBar(i, nt + 1, prefix = 'Progress:', suffix = 'Complete', length = 50)
 
-nodes2 = np.linspace( grid.left, rightBoundary, 1000 )
-I2 = ansatz.interpolationMatrix( nodes2 )
-evalU2 = I2 * fullU[i]
+
 
 #evalU2 = nodes2 * 0
 #for j in range(ansatz.nDof()):
 #    evalU2[j] = ansatz.interpolate( nodes2[j], fullU[i] )
-print( "Error: %e " % np.linalg.norm( (evalU2 - uxt(nodes2, i*dt ))/system.nDof() ) )
+print( "Error: %e " % errorSum )
 
 # Plot animation
 def postprocess():
@@ -218,7 +219,7 @@ def postprocess():
         plt.title(title + " time %3.2e" % i)
         line.set_ydata( fullU[int( round(i / tmax * nt) )] )
         line2.set_ydata( evalU[int( round(i / tmax * nt) )] )
-        line3.set_ydata( uxt(nodes, i ) )
+        line3.set_ydata( uxt(nodes, i + dt ) )
         return line,
 
     frames = np.linspace(0, tmax, round( tmax * 60 / animationSpeed))

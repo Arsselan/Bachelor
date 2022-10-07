@@ -9,30 +9,30 @@ import bspline
 from waves1d import *
 from progress import *
 
-def runStudy(n):
+# problem
+left = 0
+right = 2.0
+extra = 0.0
 
-    # problem
-    left = 0
-    right = 2.0
-    extra = 0.0
+#method
+ansatzType = 'Lagrange'
+#ansatzType = 'Spline'
+continuity = 'p-1'
+lump = False
+depth = 40
 
-    #method
-    ansatzType = 'Lagrange'
-    #ansatzType = 'Spline'
-    continuity = 'p-1'
-    lump = False
-    depth = 40
+def runStudy(n, p):
 
-    p = 4
+    #p = 4
     #n = 200
 
-    tmax = 1.78
+    tmax = 0.7
     nt = 1000
     dt = tmax / nt
 
     # create grid and domain
     grid = UniformGrid(left, right, n)
-    rightBoundary = right-extra-grid.elementSize * 45.5*1
+    rightBoundary = right-extra-grid.elementSize * 5.5 * 0
     L = rightBoundary
     pi = np.pi
 
@@ -131,7 +131,7 @@ def runStudy(n):
 
     # create system
     system = TripletSystem(ansatz, quadrature, lump, fx)
-    system.findZeroDof(-1e60)
+    system.findZeroDof()
     M, K = system.createSparseMatrices()
     F = system.getReducedVector(system.F)
 
@@ -143,7 +143,7 @@ def runStudy(n):
     print("Critical time step size is %e" % critDeltaT)
     print("Chosen time step size is %e" % dt)
 
-    dt = 1e-4#critDeltaT * 0.1
+    dt = 1e-5#critDeltaT * 0.1
     nt = int(tmax / dt + 0.5)
     dt = tmax / nt
     print("Corrected time step size is %e" % dt)
@@ -159,29 +159,29 @@ def runStudy(n):
     evalU = 0*fullU
 
     nodes = np.linspace( grid.left, grid.right, ansatz.nDof() )
-
-    #printProgressBar(0, nt+1, prefix = 'Progress:', suffix = 'Complete', length = 50)
-
     I = ansatz.interpolationMatrix( nodes )
+        
+    nodes2 = np.linspace( grid.left, rightBoundary, 1000 )
+    I2 = ansatz.interpolationMatrix( nodes2 )
+    
+    #printProgressBar(0, nt+1, prefix = 'Progress:', suffix = 'Complete', length = 50)
+   
+    errorSum = 0 
     for i in range( 2, nt + 1 ):
         u[i] = factorized.solve( M * ( 2 * u[i - 1] - u[i - 2] ) + dt**2 * ( F * ft( i * dt ) - K * u[i - 1] ) )
         fullU[i] = system.getFullVector(u[i])
-        #evalU[i] = I*fullU[i]
-        
-        #for j in range(ansatz.nDof()):
-        #    evalU[i][j] = ansatz.interpolate( nodes[j], fullU[i])
+        evalU[i] = I*fullU[i]
+        evalU2 = I2 * fullU[i]
+        errorSum += dt*np.linalg.norm( (evalU2 - uxt(nodes2, (i+1)*dt ))/system.nDof() )
             
         #if i % int(nt / 100) == 0:
         #    print( np.linalg.norm(evalU[i] - uxt(nodes, i*dt )) )
             #printProgressBar(i, nt + 1, prefix = 'Progress:', suffix = 'Complete', length = 50)
 
-    nodes2 = np.linspace( grid.left, rightBoundary, 1000 )
-    I2 = ansatz.interpolationMatrix( nodes2 )
-    evalU2 = I2 * fullU[i] 
-    error = np.linalg.norm( (evalU2 - uxt(nodes2, i*dt ))/system.nDof() )
-    print( "Error: %e " % error )
     
-    return error, system.nDof(), dt
+    print( "Error: %e " % errorSum )
+    
+    return errorSum, system.nDof(), dt
 
 # Plot animation
 def postprocess():
@@ -228,16 +228,18 @@ def postprocess():
 
 #postprocess()
 
-nRef = 5
+figure, ax = plt.subplots()
+
+nRef = 4
 errors = [0]*nRef
 dofs = [0]*nRef
 dts = [0]*nRef
-for i in range(nRef):
-    errors[i], dofs[i], dts[i] = runStudy(int(50*1.5**i))
+for p in [1,2,3,4]:
+    print("p=%d" % p)
+    for i in range(nRef):
+        errors[i], dofs[i], dts[i] = runStudy(int(10*2**i), p)
+    ax.loglog(dofs, errors,'-o', label='p=' + str(p))
 
-
-figure, ax = plt.subplots()
-ax.loglog(dofs, errors,'-o', label='p=')
 
 ax.legend()
 
@@ -249,7 +251,6 @@ if lump:
 else:
     title = title + ' consistent'
 title += ' d=' + str(extra)
-title += ' ' + eigenvalueSearch
 plt.title(title)
 
 plt.xlabel('degrees of freedom')  
