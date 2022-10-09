@@ -17,7 +17,7 @@ extra = 0.0
 #method
 ansatzType = 'Lagrange'
 #ansatzType = 'Spline'
-continuity = 'p-1'
+continuity = '1'
 lump = False
 depth = 40
 
@@ -32,7 +32,7 @@ def runStudy(n, p):
 
     # create grid and domain
     grid = UniformGrid(left, right, n)
-    rightBoundary = right-extra-grid.elementSize * 5.5 * 0
+    rightBoundary = right-extra#- 0.12345# grid.elementSize * 5.5 * 1
     L = rightBoundary
     pi = np.pi
 
@@ -127,6 +127,7 @@ def runStudy(n, p):
 
     # create quadrature points
     gaussPoints = np.polynomial.legendre.leggauss(p+1)
+    #gaussPoints = GLL(p+1)
     quadrature = SpaceTreeQuadrature(grid, gaussPoints, domain, depth)
 
     # create system
@@ -254,7 +255,7 @@ title += ' d=' + str(extra)
 plt.title(title)
 
 plt.xlabel('degrees of freedom')  
-plt.ylabel('relative error in sixth eigenvalue ')  
+plt.ylabel('time domain error')  
 
 plt.savefig(title.replace(' ', '_') + '.pdf')
 plt.show()

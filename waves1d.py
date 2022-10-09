@@ -180,6 +180,7 @@ class LagrangeAnsatz:
             val[pslice] = basis[0]
         return scipy.sparse.coo_matrix( (val, (row, col)), shape=(n, self.nDof()) ).tocsc( )
             
+
 class TripletSystem:
     def __init__(self, ansatz, quadrature, lump = False, bodyLoad = lambda x : 0.0 ):
         self.lump = lump
@@ -201,8 +202,6 @@ class TripletSystem:
             Me = np.zeros( ( p+1, p+1 ) ) 
             Ke = np.zeros( ( p+1, p+1 ) )
             Fe = np.zeros( p+1 )
-            x1 = grid.pos(i, -1)
-            x2 = grid.pos(i, 1)
             points = quadrature.points[i]
             weights = quadrature.weights[i]
             for j in range(len(points)):
@@ -217,7 +216,7 @@ class TripletSystem:
             row[eslice] = np.broadcast_to( lm, (p+1, p+1) ).T.ravel()
             col[eslice] = np.broadcast_to( lm, (p+1, p+1) ).ravel()
             valK[eslice] = Ke.ravel()
-
+            
             if(lump):
                 diagMe = np.zeros(Me.shape);
                 for i in range(Me.shape[0]):
@@ -291,6 +290,11 @@ class TripletSystem:
 
     def getReducedVector(self, fullVector):
         return fullVector[self.nonZeroDof]
+
+
+
+
+
 
 def removeZeroDof(fullK, fullM):
     deleted = 1
