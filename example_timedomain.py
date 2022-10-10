@@ -17,8 +17,8 @@ extra = 0.0
 #method
 ansatzType = 'Lagrange'
 #ansatzType = 'Spline'
-continuity = 'p-1'
-lump = False
+continuity = '0'
+lump = True
 depth = 40
 
 p = 4

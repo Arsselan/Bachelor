@@ -15,16 +15,16 @@ right = 2.0
 extra = 0.0
 
 #method
-ansatzType = 'Spline'
+#ansatzType = 'Spline'
+#continuity = 'p-1'
+
+ansatzType = 'Lagrange'
 continuity = '0'
 
-#ansatzType = 'Lagrange'
-#continuity = '0'
-
-lump = True
+lump = False
 depth = 40
 
-rightBoundary = right-extra - 0.12345# grid.elementSize * 5.5 * 1
+rightBoundary = right-extra #- 0.12345# grid.elementSize * 5.5 * 1
 L = rightBoundary
 pi = np.pi
 
@@ -124,8 +124,7 @@ def runStudy(n, p, spectral):
     else:
         system = TripletSystem.fromOneQuadrature(ansatz, quadratureK, lump, fx)
     
-    system.findZeroDof(-1e60)
-    
+    system.findZeroDof()
     print("Zero dof: " + str(system.zeroDof))
     M, K = system.createSparseMatrices()
     F = system.getReducedVector(system.F)
@@ -138,7 +137,7 @@ def runStudy(n, p, spectral):
     print("Critical time step size is %e" % critDeltaT)
     print("Chosen time step size is %e" % dt)
 
-    dt = 1e-5#critDeltaT * 0.1
+    dt = 1e-6#critDeltaT * 0.1
     nt = int(tmax / dt + 0.5)
     dt = tmax / nt
     print("Corrected time step size is %e" % dt)
@@ -236,7 +235,7 @@ errors = [0]*nRef
 dofs = [0]*nRef
 dts = [0]*nRef
 for p in [1,2,3,4]:
-    k = 0
+    k = p-1
     if ansatzType=='Lagrange':
         k = 0
     print("p=%d" % p)
@@ -244,7 +243,6 @@ for p in [1,2,3,4]:
         errors[i], dofs[i], dts[i] = runStudy(int((20/(p-k))*1.5**i), p, False)
     ax.loglog(dofs, errors,'-o', label='p=' + str(p), color=colors[p-1])
     if ansatzType=='Lagrange':
-        print("spectral:")
         for i in range(nRef):
             errors[i], dofs[i], dts[i] = runStudy(int((20/(p-k))*1.5**i), p, True)
         ax.loglog(dofs, errors,'--x', label='p=' + str(p) + ' spectral', color=colors[p-1])

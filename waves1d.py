@@ -25,7 +25,7 @@ class UniformGrid:
         return min(self.nElements - 1, int( (globalPos - self.left) / self.length * self.nElements ) )
 
     def localPos(self, globalPos):
-        return -1 + 2 * (globalPos - self.left) / self.length
+        return -1 + 2 * (globalPos - self.left - self.elementIndex(globalPos)*self.elementSize ) / self.elementSize
 
 class Domain:
     def __init__(self, alphaFunc):
@@ -95,8 +95,8 @@ class SplineAnsatz:
     def spanIndex(self, iElement):
         return self.p + iElement * (self.p - self.k)
         
-    def evaluate(self, pos, order):
-        iElement = self.grid.elementIndex(pos)
+    def evaluate(self, pos, order, iElement):
+        #iElement = self.grid.elementIndex(pos)
         iSpan = self.spanIndex(iElement)
         #print("e=%d, s=%s" % (iElement, iSpan))
         return bspline.evaluateBSplineBases(iSpan, pos, self.p, order, self.knots)
@@ -139,17 +139,26 @@ class LagrangeAnsatz:
         self.points = points
         self.p = len(points) - 1
         self.knots = np.linspace(grid.left, grid.right, grid.nElements+1)
+        
+        #lagrangeValues = np.identity(self.p + 1)
+        #lagrange = lambda i : scipy.interpolate.lagrange(points, lagrangeValues[i])
+        #self.shapesDiff0 = [lagrange(i) for i in range( self.p + 1 )]    
+        #self.shapesDiff1 = [np.polyder(shape) for shape in self.shapesDiff0];
               
-    def evaluate(self, pos, order):
-        # Better do this
+    def evaluate(self, pos, order, iElement):
         #localPos = self.grid.localPos(pos)
         #basis = lagrange.evaluateLagrangeBases(self.points, localPos, order)
+        #basis = [ np.array([shape(localPos) for shape in self.shapesDiff0]), np.array([shape(localPos) for shape in self.shapesDiff1]) ]
         #if order > 0:
-        #    basis[1] = basis[1] * 2 / grid.elementSize
+        #    basis[1] = basis[1] * 2 / self.grid.elementSize
         # than this:
-        iElement = self.grid.elementIndex(pos)
+        
+        #iElement = self.grid.elementIndex(pos)
+        #print("e: " + str(iElement))
         basis = lagrange.evaluateLagrangeBases(iElement, pos, self.points, order, self.knots)
+        
         return basis
+        
     
     def locationMap(self, iElement):
         iShape = iElement*self.p
@@ -182,8 +191,16 @@ class LagrangeAnsatz:
             
 
 class TripletSystem:
-    def __init__(self, ansatz, quadrature, lump = False, bodyLoad = lambda x : 0.0 ):
-        self.lump = lump
+    def __init__(self, ansatz, valM, valK, row, col, F):
+        self.ansatz = ansatz
+        self.valM = valM
+        self.valK = valK
+        self.row = row
+        self.col = col
+        self.F = F
+    
+    @classmethod
+    def fromOneQuadrature(cls, ansatz, quadrature, lump = False, bodyLoad = lambda x : 0.0 ):
         
         p = ansatz.p
         grid = ansatz.grid
@@ -204,13 +221,15 @@ class TripletSystem:
             Fe = np.zeros( p+1 )
             points = quadrature.points[i]
             weights = quadrature.weights[i]
+            mass = 0
             for j in range(len(points)):
-                shapes = ansatz.evaluate(points[j], 1)
+                shapes = ansatz.evaluate(points[j], 1, i)
                 N = np.asarray(shapes[0])
                 B = np.asarray(shapes[1])
                 Me += np.outer(N, N) * weights[j] * alpha(points[j])
                 Ke += np.outer(B, B) * weights[j] * alpha(points[j])
                 Fe += N * bodyLoad(points[j]) * weights[j] * alpha(points[j])
+                mass += weights[j] * alpha(points[j])
                 
             eslice = slice(nval * i, nval * (i + 1))
             row[eslice] = np.broadcast_to( lm, (p+1, p+1) ).T.ravel()
@@ -218,21 +237,97 @@ class TripletSystem:
             valK[eslice] = Ke.ravel()
             
             if(lump):
+                #diagMe = np.zeros(Me.shape);
+                #for i in range(Me.shape[0]):
+                #    diagMe[i,i] = sum(Me[i,:])
+                #valM[eslice] = diagMe.ravel()
+                #print("Lump error: %e" % np.linalg.norm(diagMe - Me))
                 diagMe = np.zeros(Me.shape);
+                sumMe = 0
                 for i in range(Me.shape[0]):
-                    diagMe[i,i] = sum(Me[i,:])
+                    diagMe[i,i] = Me[i,i]
+                    sumMe += Me[i,i]
+                c = mass * 1 / sumMe
+                diagMe = diagMe * c
+                
+                valM[eslice] = diagMe.ravel()
+                print("Lump error: %e" % np.linalg.norm(diagMe - Me))
+            else:                
+                valM[eslice] = Me.ravel()
+            
+            F[lm] += Fe
+        
+        return cls(ansatz, valM, valK, row, col, F)
+    
+    @classmethod
+    def fromTwoQuadratures(cls, ansatz, quadratureM, quadratureK, lump = False, bodyLoad = lambda x : 0.0 ):
+        
+        p = ansatz.p
+        grid = ansatz.grid
+        n = grid.nElements
+        alpha = quadratureM.domain.alpha
+        
+        nval = (p+1)*(p+1)
+        row  = np.zeros(nval*n, dtype=np.uint)
+        col  = np.zeros(nval*n, dtype=np.uint)
+        valM = np.zeros(nval*n)
+        valK = np.zeros(nval*n)
+        F = np.zeros( ( ansatz.nDof(), ) )
+        
+        for i in range(n):
+            lm = ansatz.locationMap(i)
+            #print("ELEMENT " + str(i) + "lm: " + str(lm))
+            Me = np.zeros( ( p+1, p+1 ) ) 
+            Ke = np.zeros( ( p+1, p+1 ) )
+            Fe = np.zeros( p+1 )
+            pointsM = quadratureM.points[i]
+            weightsM = quadratureM.weights[i]
+            pointsK = quadratureK.points[i]
+            weightsK = quadratureK.weights[i]
+            for j in range(len(pointsM)):
+                #print("M p: " + str(j) + " " + str(pointsM[j]))
+                shapes = ansatz.evaluate(pointsM[j], 1, i)
+                N = np.asarray(shapes[0])
+                B = np.asarray(shapes[1])
+                Me += np.outer(N, N) * weightsM[j] * alpha(pointsM[j])
+                
+            mass = 0
+            for j in range(len(pointsK)):
+                #print("K p: " + str(j) + " " + str(pointsK[j]))
+                shapes = ansatz.evaluate(pointsK[j], 1, i)
+                N = np.asarray(shapes[0])
+                B = np.asarray(shapes[1])
+                Ke += np.outer(B, B) * weightsK[j] * alpha(pointsK[j])
+                Fe += N * bodyLoad(pointsK[j]) * weightsK[j] * alpha(pointsK[j])
+                mass += weightsK[j] * alpha(pointsK[j])
+             
+            eslice = slice(nval * i, nval * (i + 1))
+            row[eslice] = np.broadcast_to( lm, (p+1, p+1) ).T.ravel()
+            col[eslice] = np.broadcast_to( lm, (p+1, p+1) ).ravel()
+            valK[eslice] = Ke.ravel()
+            
+            if(lump):
+                #diagMe = np.zeros(Me.shape);
+                #for i in range(Me.shape[0]):
+                #    diagMe[i,i] = sum(Me[i,:])
+                #print("Lump error: %e" % np.linalg.norm(diagMe - Me))
+                
+                diagMe = np.zeros(Me.shape);
+                sumMe = 0
+                for i in range(Me.shape[0]):
+                    diagMe[i,i] = Me[i,i]
+                    sumMe += Me[i,i]
+                c = mass * 1 / sumMe
+                diagMe = diagMe * c
+                
                 valM[eslice] = diagMe.ravel()
             else:                
                 valM[eslice] = Me.ravel()
             
             F[lm] += Fe
         
-        self.ansatz = ansatz
-        self.valM = valM
-        self.valK = valK
-        self.row = row
-        self.col = col
-        self.F = F
+        return cls(ansatz, valM, valK, row, col, F)
+    
     
     def nDof(self):
         return int(max(self.row) + 1)
@@ -291,31 +386,6 @@ class TripletSystem:
     def getReducedVector(self, fullVector):
         return fullVector[self.nonZeroDof]
 
-
-
-
-
-
-def removeZeroDof(fullK, fullM):
-    deleted = 1
-    while deleted==1:    
-        deleted = 0
-        if(fullM[0,0]<1e-60):
-            fullM=np.delete(fullM, 0, 0)
-            fullM=np.delete(fullM, 0, 1)
-            fullK=np.delete(fullK, 0, 0)
-            fullK=np.delete(fullK, 0, 1)
-            deleted = 1
-            #print("Deleted left")
-        if(fullM[-1,-1]<1e-60):
-            fullM=np.delete(fullM, -1, 0)
-            fullM=np.delete(fullM, -1, 1)
-            fullK=np.delete(fullK, -1, 0)
-            fullK=np.delete(fullK, -1, 1)
-            deleted = 1
-            #print("Deleted right")
-    return fullK, fullM
-    
 
 def find_nearest(array, value):
     array = np.asarray(array)
