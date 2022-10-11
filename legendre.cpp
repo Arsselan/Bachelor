@@ -81,11 +81,11 @@ std::vector<std::vector<double>> evaluateLegendreBases(const int i,
     return ders;
 }
 
-PYBIND11_MODULE(lagrange, m) {
+PYBIND11_MODULE(legendre, m) {
     m.doc() = "Integrated legendre basis evaluation";
 
     m.def("evaluateLegendreBases", &evaluateLegendreBases, "Evaluate an integrated Legendre basis");
 }
 
-// g++ -O3 -Wall -shared -std=c++11 -fPIC $(python3-config --includes) -Ipybind11/include legendre.cpp -o lagrange$(python3-config --extension-suffix)
+// g++ -O3 -Wall -shared -std=c++11 -fPIC $(python3-config --includes) -Ipybind11/include legendre.cpp -o legendre$(python3-config --extension-suffix)
 

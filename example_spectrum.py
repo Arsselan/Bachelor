@@ -4,142 +4,150 @@ import matplotlib.animation as anim
 import scipy.sparse
 import scipy.sparse.linalg
 import bspline
-#from scipy.interpolate import BSpline
 
 from waves1d import *
 
 # problem
 left = 0
 right = 1.2
+extra = 0.19
+
+# method
+depth = 40
+p = 3
+n = 20*p
 
 # analysis
 nw = 10
-depth = 10
+indices = np.linspace(0, nw, nw + 1)
+wExact = (indices * np.pi) / (1.2 - 2 * extra)
 
 
-def runStudy(n, p, extra):
-    
+def runStudy(n, p, extra, spectral, mass):
+    print("Running study...")
     # create grid and domain
     grid = UniformGrid(left, right, n)
-    
+
     def alpha(x):
-        if x>=left+extra and x<=right-extra:
+        if left + extra <= x <= right - extra:
             return 1.0
         return 0
-    
-    domain = Domain(alpha)
-        
-    # create ansatz
-    if ansatzType == 'Spline':
-        if continuity == 'p-1':
-            k = p-1
-        else:
-            k = int(continuity)
-        k = max(0, min(k, p-1))
-        ansatz = SplineAnsatz(grid, p, k)
-    elif ansatzType == 'Lagrange':
-        gllPoints = GLL(p+1)
-        ansatz = LagrangeAnsatz(grid, gllPoints[0])
-    else:
-        print("Error! Choose ansatzType 'Spline' or 'Lagrange'")
-    
-    #print(ansatz.knots)
 
-    # create quadrature points
-    gaussPoints = np.polynomial.legendre.leggauss(p+1)
-    quadrature = SpaceTreeQuadrature(grid, gaussPoints, domain, depth)
+    domain = Domain(alpha)
+
+    # create ansatz and quadrature
+    ansatz = createAnsatz(ansatzType, continuity, p, grid)
+
+    gaussPointsM = GLL(p + 1)
+    quadratureM = SpaceTreeQuadrature(grid, gaussPointsM, domain, depth)
+
+    gaussPointsK = np.polynomial.legendre.leggauss(p + 1)
+    quadratureK = SpaceTreeQuadrature(grid, gaussPointsK, domain, depth)
 
     # create system
-    system = TripletSystem(ansatz, quadrature, lump)
+    if spectral:
+        system = TripletSystem.fromTwoQuadratures(ansatz, quadratureM, quadratureK)
+    else:
+        system = TripletSystem.fromOneQuadrature(ansatz, quadratureK)
+
     system.findZeroDof()
+    if len(system.zeroDof) > 0:
+        print("Warning! There were %d zero dof found: " % len(system.zeroDof) + str(system.zeroDof))
 
     # solve sparse
-    #M, K = system.createSparseMatrices()
-    #w = scipy.sparse.linalg.eigs(K, K.shape[0]-2, M.toarray(), which='SM', return_eigenvectors=False)
+    M, K, MHRZ, MRS = system.createSparseMatrices(returnHRZ=True, returnRS=True)
 
-    # solve dense
-    fullM, fullK = system.createDenseMatrices()
-    w = scipy.linalg.eigvals(fullK, fullM)    
-    
+    if mass == 'CON':
+        # w = scipy.sparse.linalg.eigs(K, K.shape[0] - 2, M, which='SM', return_eigenvectors=False)
+        w = scipy.linalg.eigvals(K.toarray(), M.toarray())
+    elif mass == 'HRZ':
+        # w = scipy.sparse.linalg.eigs(K, K.shape[0] - 2, MHRZ, which='SM', return_eigenvectors=False)
+        w = scipy.linalg.eigvals(K.toarray(), MHRZ.toarray())
+    elif mass == 'RS':
+        # w = scipy.sparse.linalg.eigs(K, K.shape[0] - 2, MRS, which='SM', return_eigenvectors=False)
+        w = scipy.linalg.eigvals(K.toarray(), MRS.toarray())
+    else:
+        print("Error! Choose mass 'CON' or 'HRZ' or 'RS'")
+
+    if np.linalg.norm(np.imag(w)) > 0:
+        print("Warning! There were imaginary eigenvalues: " + str(w))
+
     # compute frequencies
-    #w = np.real(w)
-    #w = np.abs(w)
+    w = np.real(w)
+    w = np.abs(w)
     w = np.sqrt(w + 0j)
     w = np.sort(w)
-    #print(w)
 
-    return w
-    
+    if np.linalg.norm(np.imag(w)) > 0:
+        print("Warning! There were negative eigenvalues: " + str(w))
+
+    return np.real(w), system.nDof()
+
 
 def createLegend():
-    title = ansatzType + ' C' + str(continuity)
-    if lump:
-        title = title + ' lumped'
-    else:
-        title = title + ' consistent'
-    title += ' d=' + str(extra)
-    return title
-    
+    leg = ansatzType + ' C' + str(continuity)
+    leg += ' ' + mass
+    leg += ' d=' + str(extra)
+    leg += ' dof=' + str(dof)
+    return leg
 
 
+# plot
+figure, (ax1, ax2) = plt.subplots(1, 2)
+ax1.plot(indices, wExact, '-', label='reference')
+ax2.plot(indices[1:], wExact[1:] / wExact[1:], '--o', label='reference')
 
-
-p = 3
-n = 20
-extra = 0.20
-
-indices = np.linspace(0, nw, nw+1)
-wexact = (indices*np.pi)/(1.2-2*extra)   
-
-figure, ax = plt.subplots()
-    
-ax.plot(indices, wexact,'-', label='reference')
-
-#method
+# studies
 ansatzType = 'Lagrange'
 continuity = '0'
-lump = True
-wnum = runStudy(n, p, extra)
-wnum = wnum[0:nw+1]
-ax.plot(indices, wnum,'--o', label=createLegend())
-
+k = eval(continuity)
+mass = 'RS'
+wNum, dof = runStudy(int(n/(p-k)), p, extra, False, mass)
+wNum = wNum[0:nw + 1]
+print(wNum)
+ax1.plot(indices, wNum, '--o', label=createLegend())
+ax2.plot(indices[1:], wNum[1:] / wExact[1:], '--o', label=createLegend())
 
 ansatzType = 'Spline'
-continuity = '0'
-lump = True
-wnum = runStudy(n, p, extra)
-wnum = wnum[0:nw+1]
-ax.plot(indices, wnum,'--o', label=createLegend())
+continuity = 'p-1'
+k = eval(continuity)
+mass = 'RS'
+wNum, dof = runStudy(int(n/(p-k)), p, extra, False, mass)
+wNum = wNum[0:nw + 1]
+print(wNum)
+ax1.plot(indices, wNum, '--o', label=createLegend())
+ax2.plot(indices[1:], wNum[1:] / wExact[1:], '--o', label=createLegend())
 
 ansatzType = 'Lagrange'
 continuity = '0'
-lump = False
-wnum = runStudy(n, p, extra)
-wnum = wnum[0:nw+1]
-ax.plot(indices, wnum,'--x', label=createLegend())
-
+k = eval(continuity)
+mass = 'CON'
+wNum, dof = runStudy(int(n/(p-k)), p, extra, False, mass)
+wNum = wNum[0:nw + 1]
+print(wNum)
+ax1.plot(indices, wNum, '--x', label=createLegend())
+ax2.plot(indices[1:], wNum[1:] / wExact[1:], '--x', label=createLegend())
 
 ansatzType = 'Spline'
-continuity = '0'
-lump = False
-wnum = runStudy(n, p, extra)
-wnum = wnum[0:nw+1]
-ax.plot(indices, wnum,'--+', label=createLegend())
+continuity = 'p-1'
+k = eval(continuity)
+mass = 'CON'
+wNum, dof = runStudy(int(n/(p-k)), p, extra, False, mass)
+wNum = wNum[0:nw + 1]
+print(wNum)
+ax1.plot(indices, wNum, '--+', label=createLegend())
+ax2.plot(indices[1:], wNum[1:] / wExact[1:], '--x', label=createLegend())
 
-
-#errors = np.abs(wnum - wexact) / wexact
-
-ax.legend()
+ax1.legend()
+ax2.legend()
 
 plt.rcParams['axes.titleweight'] = 'bold'
 
 title = 'Spectrum for p=' + str(p) + ' n=' + str(n) + " d=" + str(extra)
-plt.title(title)
+figure.suptitle(title)
 
-plt.xlabel('eigenvalue index')  
-plt.ylabel('eigenvalue ')  
+plt.xlabel('eigenvalue index')
+plt.ylabel('eigenvalue ')
 
-plt.savefig(title.replace(' ', '_') + '.pdf')
+plt.savefig('results/' + title.replace(' ', '_') + '.pdf')
 plt.show()
-
-    
