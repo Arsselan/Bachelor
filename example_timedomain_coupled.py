@@ -34,10 +34,10 @@ source = RicklersWavelet(1.0, alphaF)
 ansatzType = 'Lagrange'
 continuity = '0'
 spaceTreeDepth = 40
-n = 100
+n = 10
 p = 1
-tMax = 0.7
-nt = 1000
+tMax = 7
+nt = 10000
 dt = tMax / nt
 
 # create grid and domains
@@ -54,7 +54,7 @@ quadratureS = SpaceTreeQuadrature(grid, gaussPoints, domainS, spaceTreeDepth)
 
 # create system
 systemF = TripletSystem.fromOneQuadrature(ansatz, quadratureF, source.fx)
-systemS = TripletSystem.fromOneQuadrature(ansatz, quadratureS, source.fx)
+systemS = TripletSystem.fromOneQuadrature(ansatz, quadratureS)
 
 systemF.findZeroDof()
 systemS.findZeroDof()
@@ -94,12 +94,12 @@ nodesS = np.linspace(boundary, grid.right, 1000)
 IS = ansatz.interpolationMatrix(nodesS)
 
 for i in range(2, nt + 1):
-    rhs = M * (2 * u[i - 1] - u[i - 2]) + + dt/2 * C * u[i-2] + dt ** 2 * (F * source.ft(i * dt) - K * u[i - 1])
+    rhs = M * (2 * u[i - 1] - u[i - 2]) + dt/2 * C * u[i-2] + dt ** 2 * (F * source.ft(i * dt) - K * u[i - 1])
     u[i] = lu.solve(rhs)
     fullUF[i] = systemF.getFullVector(u[i][0:nDofF])
-    fullUS[i] = systemF.getFullVector(u[i][0:nDofS])
-    evalUF = IF * fullUF[i]
-    evalUS = IS * fullUS[i]
+    fullUS[i] = systemS.getFullVector(u[i][nDofF:nDofF+nDofS])
+    evalUF[i] = IF * fullUF[i]
+    evalUS[i] = IS * fullUS[i]
 
 
 # Plot animation
@@ -110,14 +110,14 @@ def postProcess():
 
     ax.plot([boundary, boundary], [-0.1, 0.1], '--', label='domain boundary')
 
-    line, = ax.plot(0, 0, label='conrrol points')
-    line.set_xdata(np.linspace(grid.left, grid.right, ansatz.nDof()))
+    #line, = ax.plot(0, 0, label='conrrol points')
+    #line.set_xdata(np.linspace(grid.left, grid.right, ansatz.nDof()))
 
-    line2, = ax.plot(0, 0, label='numerical')
-    line2.set_xdata(nodes)
+    line2, = ax.plot(0, 0, label='F')
+    line2.set_xdata(nodesF)
 
-    line3, = ax.plot(0, 0, '--', label='analytical')
-    line3.set_xdata(nodes)
+    line3, = ax.plot(0, 0, '--', label='S')
+    line3.set_xdata(nodesS)
 
     # ax.plot([0, xmax],[1, 1], '--b')
     # ax.plot([interface, interface],[-0.5, 2.1], '--r')
@@ -134,10 +134,9 @@ def postProcess():
 
     def prepareFrame(i):
         plt.title(title + " time %3.2e" % i)
-        line.set_ydata(fullU[int(round(i / tMax * nt))])
-        line2.set_ydata(evalU[int(round(i / tMax * nt))])
-        line3.set_ydata(uxt(nodes, i))
-        return line,
+        #line.set_ydata(fullU[int(round(i / tMax * nt))])
+        line2.set_ydata(evalUF[int(round(i / tMax * nt))])
+        line3.set_ydata(evalUS[int(round(i / tMax * nt))])
 
     frames = np.linspace(0, tMax, round(tMax * 60 / animationSpeed))
     animation = anim.FuncAnimation(figure, func=prepareFrame, frames=frames, interval=1000 / 60, repeat=False)
@@ -145,7 +144,7 @@ def postProcess():
     plt.show()
 
 
-# postprocess()
+postProcess()
 
 # import cProfile
 # cProfile.run('runStudy(20, 3)')

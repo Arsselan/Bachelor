@@ -400,8 +400,9 @@ def createSparseMatrices(systemF, systemS, boundary):
     rowF, colF = systemF.getReducedRowAndCol()
     rowS, colS = systemS.getReducedRowAndCol()
     nDofF = systemF.nDof()
-    rowS += nDofF
-    colS += nDofF
+    for i in range(len(rowS)):
+        rowS[i] += nDofF
+        colS[i] += nDofF
     row = np.concatenate((rowF, rowS), axis=0)
     col = np.concatenate((colF, colS), axis=0)
     valM = np.concatenate((systemF.valM, systemS.valM), axis=0)
@@ -416,9 +417,9 @@ def createSparseMatrices(systemF, systemS, boundary):
     shapesS = systemS.ansatz.evaluate(boundary, 0, iElementS)
 
     lmF = systemF.ansatz.locationMap(iElementF)
-    lmS = systemF.ansatz.locationMap(iElementS)
+    lmS = np.array(systemF.ansatz.locationMap(iElementS)) + nDofF
 
-    Ce = np.outer(shapesF, shapesS)
+    Ce = -np.outer(shapesF, shapesS)
 
     pF = systemF.ansatz.p
     pS = systemS.ansatz.p
@@ -437,9 +438,9 @@ def createSparseMatrices(systemF, systemS, boundary):
 
     rowC[eSliceS] = np.broadcast_to(lmS, (pF + 1, pS + 1)).T.ravel()
     colC[eSliceS] = np.broadcast_to(lmF, (pS + 1, pF + 1)).ravel()
-    valC[eSliceS] = Ce.T.ravel()
+    valC[eSliceS] = - Ce.T.ravel()
 
-    C = scipy.sparse.coo_matrix((valC, (rowC, colC))).tocsc()
+    C = scipy.sparse.coo_matrix((valC, (rowC, colC)), shape=M.shape).tocsc()
 
     return M, K, C
 

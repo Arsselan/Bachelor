@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as anim
 import scipy.sparse
 import scipy.sparse.linalg
-import example_plot_bspline
+import bspline
 #from scipy.interpolate import BSpline
 
 from waves1d import *

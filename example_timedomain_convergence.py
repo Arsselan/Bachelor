@@ -101,8 +101,7 @@ def runStudy(n, p, spectral):
     # spectral radius
     invM = np.diag(1 / np.diag(M.toarray()))
     ident = np.eye(fullM.shape[0])
-    A = np.matmul(fullM.toarray(), invM) - ident
-    iterMat = np.matmul(np.matmul(invM, A), M.toarray())
+    iterMat = ident - np.matmul(invM, fullM.toarray())
     spectralRadius = np.max(np.linalg.eigvals(iterMat))
     print("Spectral radius is %e" % spectralRadius)
 
@@ -116,11 +115,11 @@ def runStudy(n, p, spectral):
     for i in range(2, nt + 1):
         #print("t = %e" % (i*dt))
         rhs = fullM * (2 * u[i - 1] - u[i - 2]) + dt ** 2 * (F * source.ft(i * dt) - K * u[i - 1])
-        u[i] = luFull.solve(rhs)
+        u[i] = lu.solve(rhs)
 
-        if False:
-            nCorr = 0
-            omega = 0.9
+        if True:
+            nCorr = 500
+            omega = 1.0
             deltaU = u[i]
             for iCorr in range(nCorr):
                 #print(np.linalg.norm(u[i] - uCompare))
@@ -129,7 +128,7 @@ def runStudy(n, p, spectral):
                 deltaR = deltaU - deltaUP
                 if iCorr > 0:
                     omega = - omega * deltaR.dot(deltaUP) / deltaR.dot(deltaR)
-                if np.isnan(omega).any():
+                if np.isnan(omega).any() or np.linalg.norm(deltaU)<1e-19:
                     break
                 u[i] += omega*deltaU
 
