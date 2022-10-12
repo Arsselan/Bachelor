@@ -115,21 +115,21 @@ class SplineAnsatz:
         lm = self.locationMap(iElement)
         return np.array(basis).dot(globalVector[lm])
 
-    def interpolationMatrix(self, points):
+    def interpolationMatrix(self, points, order=0):
         n = len(points)
         nVal = (self.p + 1)
         row = np.zeros(nVal * n, dtype=np.uint)
         col = np.zeros(nVal * n, dtype=np.uint)
         val = np.zeros(nVal * n)
-        for i in range(n):
-            iElement = self.grid.elementIndex(points[i])
+        for iPoint in range(n):
+            iElement = self.grid.elementIndex(points[iPoint])
             iSpan = self.spanIndex(iElement)
-            basis = bspline.evaluateBSplineBases(iSpan, points[i], self.p, 0, self.knots)
+            basis = bspline.evaluateBSplineBases(iSpan, points[iPoint], self.p, order, self.knots)
             lm = self.locationMap(iElement)
-            pslice = slice(nVal * i, nVal * (i + 1))
-            row[pslice] = i
+            pslice = slice(nVal * iPoint, nVal * (iPoint + 1))
+            row[pslice] = iPoint
             col[pslice] = lm
-            val[pslice] = basis[0]
+            val[pslice] = basis[order]
         return scipy.sparse.coo_matrix((val, (row, col)), shape=(n, self.nDof())).tocsc()
 
 
@@ -162,20 +162,20 @@ class LagrangeAnsatz:
         lm = self.locationMap(iElement)
         return np.array(basis).dot(globalVector[lm])
 
-    def interpolationMatrix(self, points):
+    def interpolationMatrix(self, points, order=0):
         n = len(points)
         nVal = (self.p + 1)
         row = np.zeros(nVal * n, dtype=np.uint)
         col = np.zeros(nVal * n, dtype=np.uint)
         val = np.zeros(nVal * n)
-        for i in range(n):
-            iElement = self.grid.elementIndex(points[i])
-            basis = lagrange.evaluateLagrangeBases(iElement, points[i], self.points, 0, self.knots)
+        for iPoint in range(n):
+            iElement = self.grid.elementIndex(points[iPoint])
+            basis = lagrange.evaluateLagrangeBases(iElement, points[iPoint], self.points, order, self.knots)
             lm = self.locationMap(iElement)
-            pSlice = slice(nVal * i, nVal * (i + 1))
-            row[pSlice] = i
+            pSlice = slice(nVal * iPoint, nVal * (iPoint + 1))
+            row[pSlice] = iPoint
             col[pSlice] = lm
-            val[pSlice] = basis[0]
+            val[pSlice] = basis[order]
         return scipy.sparse.coo_matrix((val, (row, col)), shape=(n, self.nDof())).tocsc()
 
 
@@ -396,7 +396,7 @@ def getReducedVector(systemF, systemS):
     return np.concatenate((FF, FS), axis=0)
 
 
-def createSparseMatrices(systemF, systemS, boundary):
+def createSparseMatrices(systemF, systemS):
     rowF, colF = systemF.getReducedRowAndCol()
     rowS, colS = systemS.getReducedRowAndCol()
     nDofF = systemF.nDof()
@@ -410,6 +410,14 @@ def createSparseMatrices(systemF, systemS, boundary):
     M = scipy.sparse.coo_matrix((valM, (row, col))).tocsc()
     K = scipy.sparse.coo_matrix((valK, (row, col))).tocsc()
 
+    return M, K
+
+
+def createCouplingMatrixOld(systemF, systemS, boundary):
+    nDofF = systemF.nDof()
+    nDofS = systemS.nDof()
+    nDof = nDofF + nDofS
+
     iElementF = systemF.ansatz.grid.elementIndex(boundary)
     iElementS = systemS.ansatz.grid.elementIndex(boundary)
 
@@ -419,7 +427,7 @@ def createSparseMatrices(systemF, systemS, boundary):
     lmF = systemF.ansatz.locationMap(iElementF)
     lmS = np.array(systemF.ansatz.locationMap(iElementS)) + nDofF
 
-    Ce = -np.outer(shapesF, shapesS)
+    Ce = np.outer(shapesF, shapesS)
 
     pF = systemF.ansatz.p
     pS = systemS.ansatz.p
@@ -438,11 +446,58 @@ def createSparseMatrices(systemF, systemS, boundary):
 
     rowC[eSliceS] = np.broadcast_to(lmS, (pF + 1, pS + 1)).T.ravel()
     colC[eSliceS] = np.broadcast_to(lmF, (pS + 1, pF + 1)).ravel()
-    valC[eSliceS] = - Ce.T.ravel()
+    valC[eSliceS] = -Ce.T.ravel()
 
-    C = scipy.sparse.coo_matrix((valC, (rowC, colC)), shape=M.shape).tocsc()
+    C = scipy.sparse.coo_matrix((valC, (rowC, colC)), shape=(nDof, nDof)).tocsc()
 
-    return M, K, C
+    return C
+
+
+def createCouplingMatrix(systemF, systemS, boundaries):
+    nDofF = systemF.nDof()
+    nDofS = systemS.nDof()
+    nDof = nDofF + nDofS
+
+    pF = systemF.ansatz.p
+    pS = systemS.ansatz.p
+    nBoundaries = len(boundaries)
+
+    nVal = (pF + 1) * (pS + 1)
+    rowC = np.zeros(nVal * 2 * nBoundaries, dtype=np.uint)
+    colC = np.zeros(nVal * 2 * nBoundaries, dtype=np.uint)
+    valC = np.zeros(nVal * 2 * nBoundaries)
+
+    normal = 1
+    for iBoundary in range(nBoundaries):
+        boundary = boundaries[iBoundary]
+
+        iElementF = systemF.ansatz.grid.elementIndex(boundary)
+        iElementS = systemS.ansatz.grid.elementIndex(boundary)
+
+        shapesF = systemF.ansatz.evaluate(boundary, 0, iElementF)
+        shapesS = systemS.ansatz.evaluate(boundary, 0, iElementS)
+
+        lmF = systemF.ansatz.locationMap(iElementF)
+        lmS = np.array(systemF.ansatz.locationMap(iElementS)) + nDofF
+
+        Ce = np.outer(shapesF, shapesS) * normal
+        normal *= -1
+
+        startF = iBoundary*2*nVal
+        eSliceF = slice(startF, startF+nVal)
+        eSliceS = slice(startF+nVal, startF+2*nVal)
+
+        rowC[eSliceF] = np.broadcast_to(lmF, (pS + 1, pF + 1)).T.ravel()
+        colC[eSliceF] = np.broadcast_to(lmS, (pF + 1, pS + 1)).ravel()
+        valC[eSliceF] = Ce.ravel()
+
+        rowC[eSliceS] = np.broadcast_to(lmS, (pF + 1, pS + 1)).T.ravel()
+        colC[eSliceS] = np.broadcast_to(lmF, (pS + 1, pF + 1)).ravel()
+        valC[eSliceS] = -Ce.T.ravel()
+
+    C = scipy.sparse.coo_matrix((valC, (rowC, colC)), shape=(nDof, nDof)).tocsc()
+
+    return C
 
 
 def createAnsatz(ansatzType, continuity, p, grid):
