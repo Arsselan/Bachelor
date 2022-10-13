@@ -93,11 +93,11 @@ evalUSG = np.zeros((nt + 1, 1000))
 evalUFV = np.zeros((nt + 1, 1000))
 evalUSV = np.zeros((nt + 1, 1000))
 
-nodesF = np.linspace(grid.left, boundary * 1.1, 1000)
+nodesF = np.linspace(grid.left, boundary * 1.3, 1000)
 IF = ansatz.interpolationMatrix(nodesF)
 IFG = ansatz.interpolationMatrix(nodesF, 1)
 
-nodesS = np.linspace(boundary * 0.9, grid.right, 1000)
+nodesS = np.linspace(boundary * 0.7, grid.right, 1000)
 IS = ansatz.interpolationMatrix(nodesS)
 ISG = ansatz.interpolationMatrix(nodesS, 1)
 
@@ -118,6 +118,7 @@ for i in range(2, nt + 1):
 def postProcess():
     # plt.rcParams['text.usetex'] = True
     plt.rcParams['axes.titleweight'] = 'bold'
+    plt.rcParams["figure.figsize"] = (12, 6)
 
     figure, ax = plt.subplots()
     box = ax.get_position()
@@ -126,7 +127,7 @@ def postProcess():
     ax.set_xlim(grid.left, grid.right)
     ax.set_ylim(-2, 2)
 
-    ax.plot([boundary, boundary], [-2, 2], '--', label='domain boundary')
+    ax.plot([boundary, boundary], [-2, 2], '--', color='#000000', label='domain boundary')
 
     # line, = ax.plot(0, 0, label='conrrol points')
     # line.set_xdata(np.linspace(grid.left, grid.right, ansatz.nDof()))
@@ -175,6 +176,9 @@ def postProcess():
 
     frames = np.linspace(0, tMax, round(tMax * 60 / animationSpeed))
     animation = anim.FuncAnimation(figure, func=prepareFrame, frames=frames, interval=1000 / 60, repeat=False)
+
+    prepareFrame(2)
+    plt.savefig('results/time_domain_coupled.pdf')
 
     plt.show()
 

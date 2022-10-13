@@ -7,8 +7,10 @@ import scipy.interpolate
 
 import lagrange
 import bspline
+import gll
 
-from gll import *
+from sandbox.gllTemp import *
+
 
 
 class UniformGrid:
@@ -214,6 +216,7 @@ class TripletSystem:
             Fe = np.zeros(p + 1)
             points = quadrature.points[iElement]
             weights = quadrature.weights[iElement]
+
             mass = 0
             for j in range(len(points)):
                 shapes = ansatz.evaluate(points[j], 1, iElement)
@@ -326,13 +329,14 @@ class TripletSystem:
         nVals = len(self.row)
         for i in range(nVals):
             iRow = self.row[i]
+            #diag[iRow] += abs(self.valM[i])
             diag[iRow] += self.valM[i]
         self.zeroDof = []
         self.dofMap = [0] * nDof
         nNonZeroDof = 0
         self.nonZeroDof = []
         for i in range(nDof):
-            if diag[i] <= tol:
+            if diag[i] == tol:
                 self.zeroDof.append(i)
             else:
                 self.dofMap[i] = nNonZeroDof
@@ -382,6 +386,12 @@ def find_nearest(array, value):
     array = np.asarray(array)
     idx = (np.abs(array - value)).argmin()
     return array[idx]
+
+
+def find_nearest_index(array, value):
+    array = np.asarray(array)
+    idx = (np.abs(array - value)).argmin()
+    return idx
 
 
 def plot(ptx, pty):
@@ -506,7 +516,8 @@ def createAnsatz(ansatzType, continuity, p, grid):
         k = max(0, min(k, p - 1))
         ansatz = SplineAnsatz(grid, p, k)
     elif ansatzType == 'Lagrange':
-        gllPoints = GLL(p + 1)
+        #gllPoints = GLL(p + 1)
+        gllPoints = gll.computeGllPoints(p + 1)
         # gllPoints[0][0] += 1e-16
         # gllPoints[0][-1] -=1e-16
         ansatz = LagrangeAnsatz(grid, gllPoints[0])

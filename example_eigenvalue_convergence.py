@@ -7,28 +7,27 @@ import scipy.sparse.linalg
 
 from waves1d import *
 
+from sandbox.gllTemp import *
+
 # problem
 left = 0
 right = 1.2
-extra = 0.20
-eigenvalue = 6
+extra = 0.2
+eigenvalue = 10
 
 # analysis
-nh = 6
+nh = 8
 
 # method
-#ansatzType = 'Lagrange'
-ansatzType = 'Spline'
-continuity = 'p-1'
+ansatzType = 'Lagrange'; continuity = '0'
+#ansatzType = 'Spline'; continuity = 'p-1'
+
 mass = 'CON'
-# mass = 'HRZ'
+#mass = 'HRZ'
 #mass = 'RS'
 depth = 40
 eigenvalueSearch = 'nearest'
 #eigenvalueSearch = 'number'
-
-if ansatzType == 'Lagrange':
-    continuity = '0'
 
 wExact = (eigenvalue * np.pi) / (1.2 - 2 * extra)
 
@@ -36,34 +35,22 @@ wExact = (eigenvalue * np.pi) / (1.2 - 2 * extra)
 def alpha(x):
     if left + extra <= x <= right - extra:
         return 1.0
-    return 1e-20
+    return 0
 
 
 domain = Domain(alpha)
-
 
 
 def runStudy(n, p, spectral):
     # create grid and domain
     grid = UniformGrid(left, right, n)
 
-    # create ansatz
-    if ansatzType == 'Spline':
-        k = eval(continuity)
-        k = max(0, min(k, p - 1))
-        ansatz = SplineAnsatz(grid, p, k)
-    elif ansatzType == 'Lagrange':
-        gllPoints = GLL(p + 1)
-        # gllPoints[0][0] += 1e-16
-        # gllPoints[0][-1] -=1e-16
-        ansatz = LagrangeAnsatz(grid, gllPoints[0])
-    else:
-        print("Error! Choose ansatzType 'Spline' or 'Lagrange'")
+    # create ansatz and quadrature points
+    ansatz = createAnsatz(ansatzType, continuity, p, grid)
 
-    # print(ansatz.knots)
+    #gaussPointsM = gll.computeGllPoints(p + 1)
+    gaussPointsM = GLL(p+1)
 
-    # create quadrature points
-    gaussPointsM = GLL(p + 1)
     quadratureM = SpaceTreeQuadrature(grid, gaussPointsM, domain, depth)
 
     gaussPointsK = np.polynomial.legendre.leggauss(p + 1)
@@ -83,11 +70,14 @@ def runStudy(n, p, spectral):
     M, K, MHRZ, MRS = system.createSparseMatrices(returnHRZ=True, returnRS=True)
 
     if mass == 'CON':
-        w = scipy.sparse.linalg.eigs(K, K.shape[0] - 2, M, which='SM', return_eigenvectors=False)
+        #w = scipy.sparse.linalg.eigs(K, K.shape[0] - 2, M, which='SM', return_eigenvectors=False)
+        w = scipy.linalg.eigvals(K.toarray(), M.toarray())
     elif mass == 'HRZ':
-        w = scipy.sparse.linalg.eigs(K, K.shape[0] - 2, MHRZ, which='SM', return_eigenvectors=False)
+        #w = scipy.sparse.linalg.eigs(K, K.shape[0] - 2, MHRZ, which='SM', return_eigenvectors=False)
+        w = scipy.linalg.eigvals(K.toarray(), MHRZ.toarray())
     elif mass == 'RS':
-        w = scipy.sparse.linalg.eigs(K, K.shape[0] - 2, MRS, which='SM', return_eigenvectors=False)
+        #w = scipy.sparse.linalg.eigs(K, K.shape[0] - 2, MRS, which='SM', return_eigenvectors=False)
+        w = scipy.linalg.eigvals(K.toarray(), MRS.toarray())
     else:
         print("Error! Choose mass 'CON' or 'HRZ' or 'RS'")
 
@@ -116,7 +106,7 @@ figure, ax = plt.subplots()
 plt.rcParams['axes.titleweight'] = 'bold'
 colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
-for p in [1, 2, 3, 4]:
+for p in [1,2,3,4]:
     print("p = %d" % p)
     minws = [0] * nh
     errors = [0] * nh
@@ -124,9 +114,11 @@ for p in [1, 2, 3, 4]:
 
     k = eval(continuity)
     k = max(0, min(k, p - 1))
+    k = p-1
 
     for i in range(nh):
-        n = int((24 / (p - k)) * 1.5 ** i)
+        #n = int((12 / (p - k)) * 1.5 ** i)
+        n = 12*int(1.5**(i))
         print("n = %d" % n)
         dofs[i], minws[i] = runStudy(n, p, False)
         errors[i] = np.abs(minws[i] - wExact) / wExact
@@ -134,7 +126,8 @@ for p in [1, 2, 3, 4]:
     ax.loglog(dofs, errors, '-o', label='p=' + str(p), color=colors[p - 1])
     if ansatzType == 'Lagrange':
         for i in range(nh):
-            n = int((24 / (p - k)) * 1.5 ** i)
+            #n = int((12 / (p - k)) * 1.5 ** i)
+            n = 12 * int(1.5 ** (i))
             print("n = %d" % n)
             dofs[i], minws[i] = runStudy(n, p, True)
             errors[i] = np.abs(minws[i] - wExact) / wExact

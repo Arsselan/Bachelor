@@ -19,22 +19,22 @@ def alphaF(x):
     for i in range(int(len(boundaries)/2)):
         if boundaries[i*2] <= x <= boundaries[i*2+1]:
             return 1.0
-    return 1e-8
+    return 1e-20
 
 
 def alphaS(x):
     for i in range(int(len(boundaries)/2-0.5)):
         if boundaries[i*2+1] <= x <= boundaries[i*2+2]:
             return 1.0
-    return 1e-8
+    return 1e-20
 
 
 source = RicklersWavelet(1.0, alphaF)
 
 # method
-# ansatzType = 'Spline'
-ansatzType = 'Lagrange'
-continuity = '0'
+ansatzType = 'Spline'
+#ansatzType = 'Lagrange'
+continuity = 'p-1'
 spaceTreeDepth = 40
 n = 51
 p = 3
@@ -127,6 +127,7 @@ for i in range(2, nt + 1):
 def postProcess():
     #plt.rcParams['text.usetex'] = True
     plt.rcParams['axes.titleweight'] = 'bold'
+    plt.rcParams["figure.figsize"] = (12, 6)
 
     figure, ax = plt.subplots()
     box = ax.get_position()
@@ -183,6 +184,9 @@ def postProcess():
 
     frames = np.linspace(0, tMax, round(tMax * 60 / animationSpeed))
     animation = anim.FuncAnimation(figure, func=prepareFrame, frames=frames, interval=1000 / 60, repeat=False)
+
+    prepareFrame(2)
+    plt.savefig('results/time_domain_coupled2.pdf')
 
     plt.show()
 
