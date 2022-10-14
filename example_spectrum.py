@@ -14,7 +14,7 @@ extra = 0.119*0
 
 # method
 depth = 40
-p = 3
+p = 5
 n = 120*p
 
 # analysis
@@ -31,7 +31,7 @@ def runStudy(n, p, extra, spectral, mass):
     def alpha(x):
         if left + extra <= x <= right - extra:
             return 1.0
-        return 1e-20
+        return 0
 
     domain = Domain(alpha)
 
@@ -50,7 +50,8 @@ def runStudy(n, p, extra, spectral, mass):
     else:
         system = TripletSystem.fromOneQuadrature(ansatz, quadratureK)
 
-    system.findZeroDof(0)
+    system.findZeroDof(-1e60)
+    #system.findZeroDof(-1e60, [0, system.nDof()-1])
     if len(system.zeroDof) > 0:
         print("Warning! There were %d zero dof found: " % len(system.zeroDof) + str(system.zeroDof))
 
@@ -111,7 +112,7 @@ ax2.plot(indices[1:], wExact[1:] / wExact[1:], '-', label='reference')
 ansatzType = 'Lagrange'
 continuity = '0'
 k = eval(continuity)
-mass = 'HRZ'
+mass = 'RS'
 wNum, dof, zeroDof = runStudy(int(n/(p-k)), p, extra, False, mass)
 plotStudy('--o')
 
@@ -119,7 +120,7 @@ plotStudy('--o')
 ansatzType = 'Spline'
 continuity = 'p-1'
 k = eval(continuity)
-mass = 'HRZ'
+mass = 'RS'
 wNum, dof, zeroDof = runStudy(int(n/(p-k)), p, extra, False, mass)
 plotStudy('--x')
 
