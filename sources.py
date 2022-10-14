@@ -46,6 +46,9 @@ class RicklersWavelet:
     def fxt(self, x, t):
         return self.fx(x) * self.ft(t)
 
+    def uxt(self, x, t):
+        return 0.0
+
 
 def plotSource(source, left, right, n):
     xx = np.linspace(left, right, n)

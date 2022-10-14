@@ -1,13 +1,6 @@
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.animation as anim
-import scipy.sparse
-import scipy.sparse.linalg
-import bspline
-
+import os
 from waves1d import *
 from sources import *
-from progress import *
 
 # problem
 left = 0
@@ -37,7 +30,7 @@ ansatzType = 'Spline'
 continuity = 'p-1'
 spaceTreeDepth = 40
 n = 51
-p = 3
+p = 1
 tMax = 20
 nt = 10000*2
 dt = tMax / nt
@@ -123,9 +116,24 @@ for i in range(2, nt + 1):
     evalUFG[i] = IFG * fullUF[i]
     evalUSG[i] = ISG * fullUS[i]
 
+# Save results
+print("Saving ... ", flush=True)
+path = "results/example_coupled2"
+if not os.path.exists(path):
+    os.makedirs(path)
+np.save(path + "/pointsF.dat", nodesF)
+np.save(path + "/pointsS.dat", nodesS)
+np.save(path + "/evalUF.dat", evalUF)
+np.save(path + "/evalUS.dat", evalUS)
+np.save(path + "/evalUFV.dat", evalUFV)
+np.save(path + "/evalUSV.dat", evalUSV)
+np.save(path + "/evalUFG.dat", evalUFG)
+np.save(path + "/evalUSG.dat", evalUSG)
+
+
 # Plot animation
 def postProcess():
-    #plt.rcParams['text.usetex'] = True
+    # plt.rcParams['text.usetex'] = True
     plt.rcParams['axes.titleweight'] = 'bold'
     plt.rcParams["figure.figsize"] = (12, 6)
 
@@ -191,6 +199,7 @@ def postProcess():
     plt.show()
 
 
+print("Post-processing ... ", flush=True)
 postProcess()
 
 # import cProfile

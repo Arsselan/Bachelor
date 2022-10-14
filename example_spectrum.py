@@ -10,15 +10,15 @@ from waves1d import *
 # problem
 left = 0
 right = 1.2
-extra = 0.19
+extra = 0.119*0
 
 # method
 depth = 40
 p = 3
-n = 20*p
+n = 120*p
 
 # analysis
-nw = 10
+nw = n
 indices = np.linspace(0, nw, nw + 1)
 wExact = (indices * np.pi) / (1.2 - 2 * extra)
 
@@ -31,7 +31,7 @@ def runStudy(n, p, extra, spectral, mass):
     def alpha(x):
         if left + extra <= x <= right - extra:
             return 1.0
-        return 0
+        return 1e-20
 
     domain = Domain(alpha)
 
@@ -50,7 +50,7 @@ def runStudy(n, p, extra, spectral, mass):
     else:
         system = TripletSystem.fromOneQuadrature(ansatz, quadratureK)
 
-    system.findZeroDof()
+    system.findZeroDof(0)
     if len(system.zeroDof) > 0:
         print("Warning! There were %d zero dof found: " % len(system.zeroDof) + str(system.zeroDof))
 
@@ -81,62 +81,71 @@ def runStudy(n, p, extra, spectral, mass):
     if np.linalg.norm(np.imag(w)) > 0:
         print("Warning! There were negative eigenvalues: " + str(w))
 
-    return np.real(w), system.nDof()
+    return np.real(w), system.nDof(), system.zeroDof
 
 
 def createLegend():
     leg = ansatzType + ' C' + str(continuity)
     leg += ' ' + mass
     leg += ' d=' + str(extra)
-    leg += ' dof=' + str(dof)
+    leg += ' dof=' + str(dof-len(zeroDof)) + " / " + str(dof)
     return leg
+
+
+def plotStudy(lineStyle):
+    global wNum
+    #wNum = wNum[0:nw + 1]
+    print(wNum)
+    indices = np.linspace(0, len(wNum-1), len(wNum))
+    wExact = (indices * np.pi) / (1.2 - 2 * extra)
+    ax1.plot(indices, wNum, lineStyle, label=createLegend())
+    ax2.plot(indices[1:], wNum[1:] / wExact[1:], '--o', label=createLegend())
 
 
 # plot
 figure, (ax1, ax2) = plt.subplots(1, 2)
 ax1.plot(indices, wExact, '-', label='reference')
-ax2.plot(indices[1:], wExact[1:] / wExact[1:], '--o', label='reference')
+ax2.plot(indices[1:], wExact[1:] / wExact[1:], '-', label='reference')
 
 # studies
 ansatzType = 'Lagrange'
 continuity = '0'
 k = eval(continuity)
-mass = 'RS'
-wNum, dof = runStudy(int(n/(p-k)), p, extra, False, mass)
-wNum = wNum[0:nw + 1]
-print(wNum)
-ax1.plot(indices, wNum, '--o', label=createLegend())
-ax2.plot(indices[1:], wNum[1:] / wExact[1:], '--o', label=createLegend())
+mass = 'HRZ'
+wNum, dof, zeroDof = runStudy(int(n/(p-k)), p, extra, False, mass)
+plotStudy('--o')
+
 
 ansatzType = 'Spline'
 continuity = 'p-1'
 k = eval(continuity)
-mass = 'RS'
-wNum, dof = runStudy(int(n/(p-k)), p, extra, False, mass)
-wNum = wNum[0:nw + 1]
-print(wNum)
-ax1.plot(indices, wNum, '--o', label=createLegend())
-ax2.plot(indices[1:], wNum[1:] / wExact[1:], '--o', label=createLegend())
+mass = 'HRZ'
+wNum, dof, zeroDof = runStudy(int(n/(p-k)), p, extra, False, mass)
+plotStudy('--x')
+
 
 ansatzType = 'Lagrange'
 continuity = '0'
 k = eval(continuity)
 mass = 'CON'
-wNum, dof = runStudy(int(n/(p-k)), p, extra, False, mass)
-wNum = wNum[0:nw + 1]
-print(wNum)
-ax1.plot(indices, wNum, '--x', label=createLegend())
-ax2.plot(indices[1:], wNum[1:] / wExact[1:], '--x', label=createLegend())
+wNum, dof, zeroDof = runStudy(int(n/(p-k)), p, extra, False, mass)
+plotStudy('-o')
+
 
 ansatzType = 'Spline'
 continuity = 'p-1'
 k = eval(continuity)
 mass = 'CON'
-wNum, dof = runStudy(int(n/(p-k)), p, extra, False, mass)
-wNum = wNum[0:nw + 1]
-print(wNum)
-ax1.plot(indices, wNum, '--+', label=createLegend())
-ax2.plot(indices[1:], wNum[1:] / wExact[1:], '--x', label=createLegend())
+wNum, dof, zeroDof = runStudy(int(n/(p-k)), p, extra, False, mass)
+plotStudy('-x')
+
+
+ansatzType = 'Lagrange'
+continuity = '0'
+k = eval(continuity)
+mass = 'CON'
+wNum, dof, zeroDof = runStudy(int(n/(p-k)), p, extra, True, mass)
+plotStudy('-.+')
 
 ax1.legend()
 ax2.legend()

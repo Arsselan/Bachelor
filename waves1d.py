@@ -245,7 +245,10 @@ class TripletSystem:
             for iEntry in range(Me.shape[0]):
                 diagMe[iEntry, iEntry] = Me[iEntry, iEntry]
                 sumMe += Me[iEntry, iEntry]
-            c = mass * 1 / sumMe
+            if sumMe > 0:
+                c = mass * 1 / sumMe
+            else:
+                c = 0
             diagMe = diagMe * c
             valMHRZ[eSlice] = diagMe.ravel()
             # print("Lump error: %e" % np.linalg.norm(diagMe - Me))
@@ -314,7 +317,10 @@ class TripletSystem:
             for iEntry in range(Me.shape[0]):
                 diagMe[iEntry, iEntry] = Me[iEntry, iEntry]
                 sumMe += Me[iEntry, iEntry]
-            c = mass * 1 / sumMe
+            if sumMe > 0:
+                c = mass * 1 / sumMe
+            else:
+                c = 0
             diagMe = diagMe * c
             valMHRZ[eSlice] = diagMe.ravel()
 
@@ -323,7 +329,7 @@ class TripletSystem:
     def nDof(self):
         return int(max(self.row) + 1)
 
-    def findZeroDof(self, tol=0):
+    def findZeroDof(self, tol=0, deleteDof = []):
         nDof = self.nDof()
         diag = [0] * nDof
         nVals = len(self.row)
@@ -336,7 +342,7 @@ class TripletSystem:
         nNonZeroDof = 0
         self.nonZeroDof = []
         for i in range(nDof):
-            if diag[i] == tol:
+            if diag[i] == tol or i in deleteDof:
                 self.zeroDof.append(i)
             else:
                 self.dofMap[i] = nNonZeroDof

@@ -14,20 +14,22 @@ right = 1.2
 #ansatzType = 'Lagrange'
 ansatzType = 'Spline'
 continuity = 'p-1'
-mass = 'HRZ'
+mass = 'RS'
 depth = 40
 spectral = False
+eigenvalueSearch = 'nearest'
+eigenvalue = 3
 
 # analysis
-n = 12
-axLimitY = 500
+nBase = 24
+axLimitY = 25
 
 if ansatzType == 'Lagrange':
     continuity = '0'
 
 if ansatzType == 'Spline':
     spectral = False
-    if mass != 'CON' and continuity=='p-1':
+    if mass != 'CON' and continuity == 'p-1':
         axLimitY = 50
 
 
@@ -38,7 +40,7 @@ def runStudy(p, extra):
     def alpha(x):
         if left + extra <= x <= right - extra:
             return 1
-        return 0
+        return 1e-10
 
     domain = Domain(alpha)
 
@@ -82,24 +84,52 @@ def runStudy(p, extra):
     else:
         print("Error! Choose mass 'CON' or 'HRZ' or 'RS'")
 
-    w = np.sqrt(np.abs(w))
+    # compute frequencies
+    w = np.real(w)
+    w = np.abs(w)
+    w = np.sqrt(w + 0j)
     w = np.sort(w)
 
-    return max(w)
+    dof = system.nDof()
 
+    if eigenvalueSearch == 'nearest':
+        wExact = (eigenvalue * np.pi) / (1.2 - 2 * extra)
+        wNum = find_nearest(w, wExact)
+    elif eigenvalueSearch == 'number':
+        wNum = w[eigenvalue]
+    else:
+        print("Error! Choose eigenvaluesSearch 'nearest' or 'number'")
+
+    if np.imag(wNum) > 0:
+        print("Warning! Chosen eigenvalue has imaginary part.")
+
+    return system.nDof(), np.real(wNum)
+
+
+n = nBase
+ne = 51
+extras = list(np.linspace(0, 0.099, ne)) + list(np.linspace(0.1, 0.199, ne)) + list(np.linspace(0.2, 0.299, ne)) + [
+    0.3] + list(np.linspace(0.3, 0.399, ne)) + [0.4]
+ne = len(extras)
+
+# extras = list(np.array(extras) * 12 / n)
+extras = list(np.array(extras) * nBase / n)
+
+wExact = (eigenvalue * np.pi) / (1.2 - 2 * np.array(extras))
 
 figure, ax = plt.subplots()
-ax.set_ylim(5, axLimitY)
-for p in range(4):
-    ne = 11
-    extras = list(np.linspace(0, 0.099, ne)) + list(np.linspace(0.1, 0.199, ne)) + list(np.linspace(0.2, 0.299, ne)) + [
-        0.3] + list(np.linspace(0.3, 0.399, ne)) + [0.4]
-    ne = len(extras)
+# ax.set_ylim(5, axLimitY)
+
+ax.plot(extras, wExact, '-', label='reference', color='#000000')
+
+for p in [1, 2, 3, 4]:
     maxw = [0] * ne
     for i in range(ne):
-        maxw[i] = runStudy(p + 1, extras[i])
+        k = eval(continuity)
+        n = int(nBase / (p - k))
+        nDof, maxw[i] = runStudy(p, extras[i])
         print("e = %e, wmax = %e" % (extras[i], maxw[i]))
-    ax.plot(extras, maxw, '-o', label='p=' + str(p + 1))
+    ax.plot(extras, maxw, '-o', label='n=' + str(n) + 'p=' + str(p) + ' dof=' + str(nDof))
 
 ax.legend()
 
