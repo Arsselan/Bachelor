@@ -14,15 +14,19 @@ extra = 0.0
 eigenVector = 49
 
 # analysis
-n = 25
+#n = 97 # 101 dof for C0
+#n = 25  # 101 dof for C3
+n = 49  # 101 dof for C2
+#n = 33  # 101 dof for C1
+
 p = 4
 
 # method
-ansatzType = 'Lagrange'
+#ansatzType = 'Lagrange'
 spectral = False
 
-#ansatzType = 'Spline'
-continuity = 'p-1'
+ansatzType = 'Spline'
+continuity = '2'
 
 mass = 'CON'
 #mass = 'HRZ'
@@ -109,6 +113,7 @@ elif eigenvalueSearch == 'number':
 else:
     print("Error! Choose eigenvaluesSearch 'nearest' or 'number'")
 
+
 if np.imag(wNum) > 0:
     print("Warning! Chosen eigenvalue has imaginary part.")
 
@@ -120,21 +125,34 @@ idx = find_nearest_index(w, max(w))
 eVectorHighest = iMatrix * v[:, idx]
 eVectorHighest = eVectorHighest / eVectorHighest[0]
 
+wExact = (eigenVector+1) * np.pi / L
+idx = find_nearest_index(w, wExact)
+eVectorP1 = iMatrix * v[:, idx]
+eVectorP1 = eVectorP1 / eVectorP1[0]
+
+wExact = (eigenVector-1) * np.pi / L
+idx = find_nearest_index(w, wExact)
+eVectorM1 = iMatrix * v[:, idx]
+eVectorM1 = eVectorM1 / eVectorM1[0]
 
 #plt.rcParams["figure.figsize"] = (13, 6)
 
-figure, ax = plt.subplots(1, 2)
+figure, ax = plt.subplots(2, 2)
 plt.rcParams['axes.titleweight'] = 'bold'
 colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
 #ax[0].set_xlim(20, 450)
 #ax[0].set_ylim(1e-12, 0.1)
 
-ax[0].plot(nodesEval, eVector, '-', label='p=' + str(p), color=colors[p - 1])
-ax[1].plot(nodesEval, eVectorHighest, '-', label='p=' + str(p), color=colors[p - 1])
+ax[0][0].plot(nodesEval, eVector, '-', label='p=' + str(p), color=colors[p - 1])
+ax[1][0].plot(nodesEval, eVectorHighest, '-', label='p=' + str(p), color=colors[p - 1])
+ax[0][1].plot(nodesEval, eVectorP1, '-', label='p=' + str(p), color=colors[p - 1])
+ax[1][1].plot(nodesEval, eVectorM1, '-', label='p=' + str(p), color=colors[p - 1])
 
-ax[0].legend()
-ax[1].legend()
+ax[0][0].legend()
+ax[1][0].legend()
+ax[0][1].legend()
+ax[1][1].legend()
 
 title = ansatzType
 title += ' ' + continuity
@@ -143,13 +161,15 @@ title += ' d=' + str(extra)
 title += ' ' + eigenvalueSearch
 figure.suptitle(title)
 
-ax[0].set_title('Eigenvector ' + str(eigenVector) + '/' + str(system.nDof()))
-ax[1].set_title('Eigenvector ' + str(system.nDof()) + '/' + str(system.nDof()))
+ax[0][0].set_title('Eigenvector ' + str(eigenVector) + '/' + str(system.nDof()))
+ax[1][0].set_title('Eigenvector ' + str(system.nDof()) + '/' + str(system.nDof()))
+ax[0][1].set_title('Eigenvector ' + str(eigenVector+1) + '/' + str(system.nDof()))
+ax[1][1].set_title('Eigenvector ' + str(eigenVector-1) + '/' + str(system.nDof()))
 
-ax[0].set_xlabel('degrees of freedom')
-ax[1].set_xlabel('degrees of freedom')
-ax[0].set_ylabel('relative error in sixth eigenvalue ')
-ax[1].set_ylabel('relative error in sixth eigenvector ')
+ax[0][0].set_xlabel('degrees of freedom')
+ax[1][0].set_xlabel('degrees of freedom')
+ax[0][0].set_ylabel('relative error in sixth eigenvalue ')
+ax[1][0].set_ylabel('relative error in sixth eigenvector ')
 
 #plt.savefig('results/eigen_' + title.replace(' ', '_') + '2.pdf')
 plt.show()

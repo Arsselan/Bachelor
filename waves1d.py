@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as anim
@@ -404,6 +405,12 @@ def plot(ptx, pty):
     figure, ax = plt.subplots()
     ax.plot(ptx, pty)
     plt.show()
+
+
+def getFileBaseNameAndCreateDir(path, baseName):
+    if not os.path.exists(path):
+        os.makedirs(path)
+    return path + baseName
 
 
 def getReducedVector(systemF, systemS):

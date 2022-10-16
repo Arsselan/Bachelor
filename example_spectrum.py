@@ -10,7 +10,7 @@ from waves1d import *
 # problem
 left = 0
 right = 1.2
-extra = 0.119*0
+extra = 0.119
 
 # method
 depth = 40
@@ -50,7 +50,7 @@ def runStudy(n, p, extra, spectral, mass):
     else:
         system = TripletSystem.fromOneQuadrature(ansatz, quadratureK)
 
-    system.findZeroDof(-1e60)
+    system.findZeroDof(0)
     #system.findZeroDof(-1e60, [0, system.nDof()-1])
     if len(system.zeroDof) > 0:
         print("Warning! There were %d zero dof found: " % len(system.zeroDof) + str(system.zeroDof))

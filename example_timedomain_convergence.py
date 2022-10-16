@@ -20,15 +20,15 @@ L = rightBoundary
 pi = np.pi
 
 wx = 2 * pi / L * 10
-wt = 2 * pi
+wt = 2 * pi * 10
 source = Manufactured1(wx, wt)
 
 # method
-ansatzType = 'Spline'
-continuity = 'p-1'
+#ansatzType = 'Spline'
+#continuity = 'p-1'
 
-# ansatzType = 'Lagrange'
-# continuity = '0'
+ansatzType = 'Lagrange'
+continuity = '0'
 
 depth = 40
 
@@ -115,9 +115,10 @@ def runStudy(n, p, spectral):
     for i in range(2, nt + 1):
         #print("t = %e" % (i*dt))
         rhs = fullM * (2 * u[i - 1] - u[i - 2]) + dt ** 2 * (F * source.ft(i * dt) - K * u[i - 1])
-        u[i] = lu.solve(rhs)
+        #u[i] = lu.solve(rhs)
+        u[i] = luFull.solve(rhs)
 
-        if True:
+        if False:
             nCorr = 500
             omega = 1.0
             deltaU = u[i]
