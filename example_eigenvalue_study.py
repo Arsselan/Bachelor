@@ -12,13 +12,13 @@ left = 0
 right = 1.2
 
 # method
-ansatzType = 'Lagrange'
-#ansatzType = 'Spline'
-continuity = 'p-1'
+#ansatzType = 'Lagrange'
+ansatzType = 'Spline'
+continuity = '0'
 mass = 'RS'
 depth = 40
 spectral = False
-stabilize = 0
+stabilize = 1e-8
 
 # analysis
 n = 12

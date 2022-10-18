@@ -14,9 +14,9 @@ extra = 0.0
 eigenVector = 49
 
 # analysis
-#n = 97 # 101 dof for C0
+n = 97 # 101 dof for C0
 #n = 25  # 101 dof for C3
-n = 49  # 101 dof for C2
+#n = 49  # 101 dof for C2
 #n = 33  # 101 dof for C1
 
 p = 4
@@ -26,16 +26,21 @@ p = 4
 spectral = False
 
 ansatzType = 'Spline'
-continuity = '2'
+continuity = 'p-1'
 
-mass = 'CON'
+#mass = 'CON'
 #mass = 'HRZ'
-#mass = 'RS'
+mass = 'RS'
 
 depth = 40
 
+
+k = eval(continuity)
+n = int(100 / (p-k))
+
+
 eigenvalueSearch = 'nearest'
-# eigenvalueSearch = 'number'
+#eigenvalueSearch = 'number'
 
 if ansatzType == 'Lagrange':
     continuity = '0'
@@ -100,7 +105,7 @@ else:
 w = np.real(w)
 w = np.abs(w)
 w = np.sqrt(w + 0j)
-# w = np.sort(w)
+wSorted = np.sort(w)
 
 dof = system.nDof()
 
@@ -125,51 +130,81 @@ idx = find_nearest_index(w, max(w))
 eVectorHighest = iMatrix * v[:, idx]
 eVectorHighest = eVectorHighest / eVectorHighest[0]
 
+if False:
+    idx = find_nearest_index(w, wSorted[-2])
+    eVectorSecondHighest = iMatrix * v[:, idx]
+    eVectorSecondHighest = eVectorSecondHighest / np.linalr.norm(eVectorSecondHighest)
+
+    idx = find_nearest_index(w, wSorted[-3])
+    eVectorThirdHighest = iMatrix * v[:, idx]
+    eVectorThirdHighest = eVectorThirdHighest / np.linalr.norm(eVectorThirdHighest)
+
+
 wExact = (eigenVector+1) * np.pi / L
-idx = find_nearest_index(w, wExact)
+if eigenvalueSearch == 'nearest':
+    idx = find_nearest_index(w, wExact)
+elif eigenvalueSearch == 'number':
+    idx = find_nearest_index(w, wSorted[eigenVector+1])
+else:
+    print("Error! Choose eigenvaluesSearch 'nearest' or 'number'")
 eVectorP1 = iMatrix * v[:, idx]
 eVectorP1 = eVectorP1 / eVectorP1[0]
 
 wExact = (eigenVector-1) * np.pi / L
-idx = find_nearest_index(w, wExact)
+if eigenvalueSearch == 'nearest':
+    idx = find_nearest_index(w, wExact)
+elif eigenvalueSearch == 'number':
+    idx = find_nearest_index(w, wSorted[eigenVector-1])
+else:
+    print("Error! Choose eigenvaluesSearch 'nearest' or 'number'")
 eVectorM1 = iMatrix * v[:, idx]
 eVectorM1 = eVectorM1 / eVectorM1[0]
 
 #plt.rcParams["figure.figsize"] = (13, 6)
+plt.rcParams["figure.figsize"] = (16, 4)
 
-figure, ax = plt.subplots(2, 2)
+figure, ax = plt.subplots(1, 3)
 plt.rcParams['axes.titleweight'] = 'bold'
 colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
+ax = [ax]
 #ax[0].set_xlim(20, 450)
 #ax[0].set_ylim(1e-12, 0.1)
 
-ax[0][0].plot(nodesEval, eVector, '-', label='p=' + str(p), color=colors[p - 1])
-ax[1][0].plot(nodesEval, eVectorHighest, '-', label='p=' + str(p), color=colors[p - 1])
-ax[0][1].plot(nodesEval, eVectorP1, '-', label='p=' + str(p), color=colors[p - 1])
-ax[1][1].plot(nodesEval, eVectorM1, '-', label='p=' + str(p), color=colors[p - 1])
+ax[0][0].plot(nodesEval, eVectorM1, '-', label='p=' + str(p), color=colors[p - 1])
+ax[0][1].plot(nodesEval, eVector, '-', label='p=' + str(p), color=colors[p - 1])
+#ax[0][2].plot(nodesEval, eVectorP1, '-', label='p=' + str(p), color=colors[p - 1])
+ax[0][2].plot(nodesEval, eVectorHighest, '-', label='p=' + str(p), color=colors[p - 1])
 
-ax[0][0].legend()
-ax[1][0].legend()
-ax[0][1].legend()
-ax[1][1].legend()
+#ax[0][0].legend()
+#ax[0][1].legend()
+#ax[0][2].legend()
+#ax[1][1].legend()
 
 title = ansatzType
 title += ' ' + continuity
 title += ' ' + mass
 title += ' d=' + str(extra)
+title += ' p=' + str(p)
 title += ' ' + eigenvalueSearch
-figure.suptitle(title)
+#figure.suptitle(title)
 
-ax[0][0].set_title('Eigenvector ' + str(eigenVector) + '/' + str(system.nDof()))
-ax[1][0].set_title('Eigenvector ' + str(system.nDof()) + '/' + str(system.nDof()))
-ax[0][1].set_title('Eigenvector ' + str(eigenVector+1) + '/' + str(system.nDof()))
-ax[1][1].set_title('Eigenvector ' + str(eigenVector-1) + '/' + str(system.nDof()))
+ax[0][0].set_title('Eigenvector ' + str(eigenVector-1) + '/' + str(system.nDof()))
+ax[0][1].set_title('Eigenvector ' + str(eigenVector) + '/' + str(system.nDof()))
+ax[0][2].set_title('Eigenvector ' + str(eigenVector+1) + '/' + str(system.nDof()))
+#ax[1][0].set_title('Eigenvector ' + str(system.nDof()) + '/' + str(system.nDof()))
 
-ax[0][0].set_xlabel('degrees of freedom')
-ax[1][0].set_xlabel('degrees of freedom')
-ax[0][0].set_ylabel('relative error in sixth eigenvalue ')
-ax[1][0].set_ylabel('relative error in sixth eigenvector ')
 
-#plt.savefig('results/eigen_' + title.replace(' ', '_') + '2.pdf')
+ax[0][0].set_xlabel('x')
+ax[0][0].set_ylabel('eigenvector')
+ax[0][1].set_xlabel('x')
+ax[0][1].set_ylabel('eigenvector')
+ax[0][2].set_xlabel('x')
+ax[0][2].set_ylabel('eigenvector')
+
+figure.tight_layout(pad=1.5)
+
+fileBaseName = getFileBaseNameAndCreateDir("results/example_eigenvector_plot/", title.replace(' ', '_'))
+
+plt.savefig(fileBaseName + '.pdf')
 plt.show()

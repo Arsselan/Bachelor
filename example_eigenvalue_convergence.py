@@ -12,19 +12,27 @@ from sandbox.gllTemp import *
 # problem
 left = 0
 right = 1.2
-extra = 0.2
-eigenvalue = 10
+extra = 0.0
+eigenvalue = 6
 
 # analysis
 nh = 8
 
 # method
-ansatzType = 'Lagrange'; continuity = '0'
-#ansatzType = 'Spline'; continuity = 'p-1'
+#ansatzType = 'Lagrange'
+ansatzType = 'Spline'
+continuity = 'p-1'
 
-mass = 'CON'
+
+if ansatzType == 'Lagrange':
+    continuity = '0'
+
+axLimitLowY = 1e-13
+axLimitHighY = 1e-0
+
+#mass = 'CON'
 #mass = 'HRZ'
-#mass = 'RS'
+mass = 'RS'
 depth = 40
 eigenvalueSearch = 'nearest'
 #eigenvalueSearch = 'number'
@@ -48,8 +56,8 @@ def runStudy(n, p, spectral):
     # create ansatz and quadrature points
     ansatz = createAnsatz(ansatzType, continuity, p, grid)
 
-    #gaussPointsM = gll.computeGllPoints(p + 1)
-    gaussPointsM = GLL(p+1)
+    # gaussPointsM = gll.computeGllPoints(p + 1)
+    gaussPointsM = GLL(p + 1)
 
     quadratureM = SpaceTreeQuadrature(grid, gaussPointsM, domain, depth)
 
@@ -70,13 +78,13 @@ def runStudy(n, p, spectral):
     M, K, MHRZ, MRS = system.createSparseMatrices(returnHRZ=True, returnRS=True)
 
     if mass == 'CON':
-        #w = scipy.sparse.linalg.eigs(K, K.shape[0] - 2, M, which='SM', return_eigenvectors=False)
+        # w = scipy.sparse.linalg.eigs(K, K.shape[0] - 2, M, which='SM', return_eigenvectors=False)
         w = scipy.linalg.eigvals(K.toarray(), M.toarray())
     elif mass == 'HRZ':
-        #w = scipy.sparse.linalg.eigs(K, K.shape[0] - 2, MHRZ, which='SM', return_eigenvectors=False)
+        # w = scipy.sparse.linalg.eigs(K, K.shape[0] - 2, MHRZ, which='SM', return_eigenvectors=False)
         w = scipy.linalg.eigvals(K.toarray(), MHRZ.toarray())
     elif mass == 'RS':
-        #w = scipy.sparse.linalg.eigs(K, K.shape[0] - 2, MRS, which='SM', return_eigenvectors=False)
+        # w = scipy.sparse.linalg.eigs(K, K.shape[0] - 2, MRS, which='SM', return_eigenvectors=False)
         w = scipy.linalg.eigvals(K.toarray(), MRS.toarray())
     else:
         print("Error! Choose mass 'CON' or 'HRZ' or 'RS'")
@@ -106,7 +114,11 @@ figure, ax = plt.subplots()
 plt.rcParams['axes.titleweight'] = 'bold'
 colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
-for p in [1,2,3,4]:
+ax.set_ylim(axLimitLowY, axLimitHighY)
+
+res = np.ndarray((nh, 8))
+
+for p in [1, 2, 3, 4]:
     print("p = %d" % p)
     minws = [0] * nh
     errors = [0] * nh
@@ -114,20 +126,23 @@ for p in [1,2,3,4]:
 
     k = eval(continuity)
     k = max(0, min(k, p - 1))
-    k = p-1
+    #k = p - 1
 
     for i in range(nh):
-        #n = int((12 / (p - k)) * 1.5 ** i)
-        n = 12*int(1.5**(i))
+        n = int((12 / (p - k)) * 1.5 ** i)
+        #n = int(12 * 1.5 ** (i))
         print("n = %d" % n)
         dofs[i], minws[i] = runStudy(n, p, False)
         errors[i] = np.abs(minws[i] - wExact) / wExact
         print("dof = %e, w = %e, e = %e" % (dofs[i], minws[i], errors[i]))
+    res[:, (p - 1) * 2] = dofs
+    res[:, (p - 1) * 2 + 1] = errors
+
     ax.loglog(dofs, errors, '-o', label='p=' + str(p), color=colors[p - 1])
     if ansatzType == 'Lagrange':
         for i in range(nh):
-            #n = int((12 / (p - k)) * 1.5 ** i)
-            n = 12 * int(1.5 ** (i))
+            n = int((12 / (p - k)) * 1.5 ** i)
+            #n = int(12 * 1.5 ** (i))
             print("n = %d" % n)
             dofs[i], minws[i] = runStudy(n, p, True)
             errors[i] = np.abs(minws[i] - wExact) / wExact
@@ -145,5 +160,8 @@ plt.title(title)
 plt.xlabel('degrees of freedom')
 plt.ylabel('relative error in sixth eigenvalue ')
 
-plt.savefig('results/' + title.replace(' ', '_') + '2.pdf')
+fileBaseName = getFileBaseNameAndCreateDir("results/example_eigenvalue_convergence/", title.replace(' ', '_'))
+np.savetxt(fileBaseName + '.dat', res)
+
+plt.savefig(fileBaseName + '.pdf')
 plt.show()

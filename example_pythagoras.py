@@ -15,9 +15,12 @@ extra = 0.219 * 0
 # method
 p = 2
 ansatzType = 'Spline'
+#ansatzType = 'Lagrange'
+
 continuity = 'p-1'
 spectral = False
-mass = 'CON'
+mass = 'RS'
+#mass ='CON'
 
 depth = 40
 
@@ -28,7 +31,10 @@ k = eval(continuity)
 n = int(100 / (p-k))
 
 
-extra = 1.2 / n * 0.99
+axLimitLowY = -1
+axLimitHighY = 4
+
+#extra = 1.2 / n * 0.99
 L = 1.2 - 2 * extra
 
 
@@ -165,19 +171,25 @@ print("Potting...", flush=True)
 
 # plot
 plt.rcParams['figure.titleweight'] = 'bold'
+plt.rcParams["figure.figsize"] = (8, 4)
 
 figure, (ax1, ax2) = plt.subplots(1, 2)
+
+ax1.set_ylim(0, 600)
+
+ax2.set_ylim(axLimitLowY, axLimitHighY)
+
 # ax2.plot(indices[1:], wExact[1:] / wExact[1:], '-', label='reference')
 #ax2.plot(nodesEval, vExact[:, 1], '--o', label='reference')
 
 ax1.set_title('Eigenfrequencies')
 ax2.set_title('Eigenvector errors')
 
-ax1.plot(indices, np.sqrt(wExact), '-', label='reference')
-ax1.plot(indices, np.sqrt(wSorted), '-x', label='numeric')
+ax1.plot(indices, np.sqrt(wExact), '-', label='reference', color='#000000')
+ax1.plot(indices, np.sqrt(wSorted), '-', label='numeric')
 
-ax2.plot(indices[1:], vErrors[1:], '-', label='vector error')
 ax2.plot(indices[1:], wErrors[1:], '-', label='value error')
+ax2.plot(indices[1:], vErrors[1:], '-', label='vector error')
 ax2.plot(indices[1:], eErrors[1:], '-', label='energy error')
 ax2.plot(indices[1:], np.abs(wErrors[1:]) + vErrors[1:], '--', label='sum abs error')
 ax2.plot(indices[1:], wErrors[1:] + vErrors[1:], '-.', label='sum error')
@@ -199,4 +211,22 @@ fileBaseName = getFileBaseNameAndCreateDir("results/example_pythagoras/", title.
 #np.savetxt(fileBaseName + '.dat', res)
 
 plt.savefig(fileBaseName + '.pdf')
+plt.show()
+
+
+plt.rcParams["figure.figsize"] = (12, 3)
+
+figure, ax = plt.subplots(1, 3)
+plt.rcParams['axes.titleweight'] = 'bold'
+colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+figure.tight_layout(pad=3)
+
+for i in range(3):
+    ax[i].plot(nodesEval, vEval[:, -3+i], '-', label='p=' + str(p))
+    ax[i].set_xlabel('x')
+    ax[i].set_ylabel('eigenvector')
+    ax[i].set_title('eigenvector ' + str(system.nDof()-3+1+i) + ' / ' + str(system.nDof()))
+
+plt.savefig(fileBaseName + '_high_vectors.pdf')
+
 plt.show()

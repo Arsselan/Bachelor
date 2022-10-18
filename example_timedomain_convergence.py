@@ -20,7 +20,7 @@ L = rightBoundary
 pi = np.pi
 
 wx = 2 * pi / L * 10
-wt = 2 * pi * 10
+wt = 2 * pi * 3
 source = Manufactured1(wx, wt)
 
 # method
@@ -73,6 +73,10 @@ def runStudy(n, p, spectral):
 
     # create matrices
     fullM, K, M = system.createSparseMatrices(returnRS=True)
+
+    lumpError = np.linalg.norm(fullM.toarray() - M.toarray())
+    print("Lump error: " + str(lumpError))
+
     F = system.getReducedVector(system.F)
 
     # compute critical time step size
@@ -137,7 +141,7 @@ def runStudy(n, p, spectral):
         evalU[i] = I * fullU[i]
         if i == nt:
             evalU2 = I2 * fullU[i]
-            errorSum += np.linalg.norm((evalU2 - source.uxt(nodes2, (i + 1) * dt)) / system.nDof())
+            errorSum += dt*np.linalg.norm((evalU2 - source.uxt(nodes2, (i + 1) * dt)) / system.nDof())
 
     nDof = system.nDof()
 
