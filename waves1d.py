@@ -194,7 +194,7 @@ class TripletSystem:
         self.F = F
 
     @classmethod
-    def fromOneQuadrature(cls, ansatz, quadrature, bodyLoad=lambda x: 0.0):
+    def fromOneQuadrature(cls, ansatz, quadrature, bodyLoad=lambda x: 0.0, selectiveLumping=False):
 
         p = ansatz.p
         grid = ansatz.grid
@@ -235,29 +235,33 @@ class TripletSystem:
             valM[eSlice] = Me.ravel()
             F[lm] += Fe
 
-            diagMe = np.zeros(Me.shape)
-            for iEntry in range(Me.shape[0]):
-                diagMe[iEntry, iEntry] = sum(Me[iEntry, :])
-            valMRS[eSlice] = diagMe.ravel()
-            # print("Lump error: %e" % np.linalg.norm(diagMe - Me))
+            if selectiveLumping is False or len(quadrature.cuts[iElement]) > 0:
+                diagMe = np.zeros(Me.shape)
+                for iEntry in range(Me.shape[0]):
+                    diagMe[iEntry, iEntry] = sum(Me[iEntry, :])
+                valMRS[eSlice] = diagMe.ravel()
+                # print("Lump error RS: %e" % np.linalg.norm(diagMe - Me))
 
-            diagMe = np.zeros(Me.shape)
-            sumMe = 0
-            for iEntry in range(Me.shape[0]):
-                diagMe[iEntry, iEntry] = Me[iEntry, iEntry]
-                sumMe += Me[iEntry, iEntry]
-            if sumMe > 0:
-                c = mass * 1 / sumMe
+                diagMe = np.zeros(Me.shape)
+                sumMe = 0
+                for iEntry in range(Me.shape[0]):
+                    diagMe[iEntry, iEntry] = Me[iEntry, iEntry]
+                    sumMe += Me[iEntry, iEntry]
+                if sumMe > 0:
+                    c = mass * 1 / sumMe
+                else:
+                    c = 0
+                diagMe = diagMe * c
+                valMHRZ[eSlice] = diagMe.ravel()
+                # print("Lump error HRZ: %e" % np.linalg.norm(diagMe - Me))
             else:
-                c = 0
-            diagMe = diagMe * c
-            valMHRZ[eSlice] = diagMe.ravel()
-            # print("Lump error: %e" % np.linalg.norm(diagMe - Me))
+                valMRS[eSlice] = Me.ravel()
+                valMHRZ[eSlice] = Me.ravel()
 
         return cls(ansatz, valM, valMHRZ, valMRS, valK, row, col, F)
 
     @classmethod
-    def fromTwoQuadratures(cls, ansatz, quadratureM, quadratureK, bodyLoad=lambda x: 0.0):
+    def fromTwoQuadratures(cls, ansatz, quadratureM, quadratureK, bodyLoad=lambda x: 0.0, selectiveLumping=False):
 
         p = ansatz.p
         grid = ansatz.grid
@@ -349,6 +353,13 @@ class TripletSystem:
                 self.dofMap[i] = nNonZeroDof
                 nNonZeroDof += 1
                 self.nonZeroDof.append(i)
+
+        for i in range(nVals):
+            if self.row[i] in self.zeroDof or self.col[i] in self.zeroDof:
+                self.valM[i] = 0
+                self.valMHRZ[i] = 0
+                self.valMRS[i] = 0
+                self.valK[i] = 0
 
     def getReducedRowAndCol(self):
         if hasattr(self, 'dofMap'):

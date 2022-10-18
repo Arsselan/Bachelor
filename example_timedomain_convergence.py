@@ -119,10 +119,10 @@ def runStudy(n, p, spectral):
     for i in range(2, nt + 1):
         #print("t = %e" % (i*dt))
         rhs = fullM * (2 * u[i - 1] - u[i - 2]) + dt ** 2 * (F * source.ft(i * dt) - K * u[i - 1])
-        #u[i] = lu.solve(rhs)
-        u[i] = luFull.solve(rhs)
+        u[i] = lu.solve(rhs)
+        #u[i] = luFull.solve(rhs)
 
-        if False:
+        if True:
             nCorr = 500
             omega = 1.0
             deltaU = u[i]
