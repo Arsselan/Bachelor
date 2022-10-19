@@ -1,5 +1,4 @@
 import os
-import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as anim
 import scipy.sparse
@@ -11,7 +10,7 @@ import bspline
 import gll
 
 from sandbox.gllTemp import *
-
+from fem1d.ansatz import *
 
 
 class UniformGrid:
@@ -75,113 +74,6 @@ class SpaceTreeQuadrature:
         return pointsL + pointsR, weightsL + weightsR, cuts
 
 
-def createKnotVector(grid, p, k):
-    extra = grid.length / grid.nElements * p
-    t = np.linspace(grid.left - extra, grid.right + extra, grid.nElements + 1 + 2 * p)
-    for i in range(p + 1):
-        t[i] = grid.left
-        t[-i - 1] = grid.right
-
-    lower = min(p - k - 1, p - 1)
-    for i in range(grid.nElements - 1):
-        for j in range(lower):
-            t = np.insert(t, p + grid.nElements - i - 1, t[p + grid.nElements - i - 1])
-
-    return t
-
-
-class SplineAnsatz:
-    def __init__(self, grid, p, k):
-        self.grid = grid
-        self.p = p
-        self.k = k
-        self.knots = createKnotVector(grid, p, k)
-
-    def spanIndex(self, iElement):
-        return self.p + iElement * (self.p - self.k)
-
-    def evaluate(self, pos, order, iElement):
-        iSpan = self.spanIndex(iElement)
-        return bspline.evaluateBSplineBases(iSpan, pos, self.p, order, self.knots)
-
-    def locationMap(self, iElement):
-        iShape = iElement * (self.p - self.k)
-        return range(iShape, iShape + self.p + 1)
-
-    def nDof(self):
-        return self.grid.nElements * (self.p - self.k) + self.k + 1
-
-    def interpolate(self, pos, globalVector):
-        iElement = self.grid.elementIndex(pos)
-        iSpan = self.spanIndex(iElement)
-        basis = bspline.evaluateBSplineBases(iSpan, pos, self.p, 0, self.knots)
-        lm = self.locationMap(iElement)
-        return np.array(basis).dot(globalVector[lm])
-
-    def interpolationMatrix(self, points, order=0):
-        n = len(points)
-        nVal = (self.p + 1)
-        row = np.zeros(nVal * n, dtype=np.uint)
-        col = np.zeros(nVal * n, dtype=np.uint)
-        val = np.zeros(nVal * n)
-        for iPoint in range(n):
-            iElement = self.grid.elementIndex(points[iPoint])
-            iSpan = self.spanIndex(iElement)
-            basis = bspline.evaluateBSplineBases(iSpan, points[iPoint], self.p, order, self.knots)
-            lm = self.locationMap(iElement)
-            pslice = slice(nVal * iPoint, nVal * (iPoint + 1))
-            row[pslice] = iPoint
-            col[pslice] = lm
-            val[pslice] = basis[order]
-        return scipy.sparse.coo_matrix((val, (row, col)), shape=(n, self.nDof())).tocsc()
-
-
-class LagrangeAnsatz:
-    def __init__(self, grid, points):
-        self.grid = grid
-        self.points = points
-        self.p = len(points) - 1
-        self.knots = np.linspace(grid.left, grid.right, grid.nElements + 1)
-
-        # lagrangeValues = np.identity(self.p + 1)
-        # lagrange = lambda i : scipy.interpolate.lagrange(points, lagrangeValues[i])
-        # self.shapesDiff0 = [lagrange(i) for i in range( self.p + 1 )]
-        # self.shapesDiff1 = [np.polyder(shape) for shape in self.shapesDiff0];
-
-    def evaluate(self, pos, order, iElement):
-        basis = lagrange.evaluateLagrangeBases(iElement, pos, self.points, order, self.knots)
-        return basis
-
-    def locationMap(self, iElement):
-        iShape = iElement * self.p
-        return range(iShape, iShape + self.p + 1)
-
-    def nDof(self):
-        return self.grid.nElements * self.p + 1
-
-    def interpolate(self, pos, globalVector):
-        iElement = self.grid.elementIndex(pos)
-        basis = lagrange.evaluateLagrangeBases(iElement, pos, self.points, 0, self.knots)
-        lm = self.locationMap(iElement)
-        return np.array(basis).dot(globalVector[lm])
-
-    def interpolationMatrix(self, points, order=0):
-        n = len(points)
-        nVal = (self.p + 1)
-        row = np.zeros(nVal * n, dtype=np.uint)
-        col = np.zeros(nVal * n, dtype=np.uint)
-        val = np.zeros(nVal * n)
-        for iPoint in range(n):
-            iElement = self.grid.elementIndex(points[iPoint])
-            basis = lagrange.evaluateLagrangeBases(iElement, points[iPoint], self.points, order, self.knots)
-            lm = self.locationMap(iElement)
-            pSlice = slice(nVal * iPoint, nVal * (iPoint + 1))
-            row[pSlice] = iPoint
-            col[pSlice] = lm
-            val[pSlice] = basis[order]
-        return scipy.sparse.coo_matrix((val, (row, col)), shape=(n, self.nDof())).tocsc()
-
-
 class TripletSystem:
     def __init__(self, ansatz, valM, valMHRZ, valMRS, valK, row, col, F):
         self.ansatz = ansatz
@@ -201,7 +93,8 @@ class TripletSystem:
         n = grid.nElements
         alpha = quadrature.domain.alpha
 
-        nVal = (p + 1) * (p + 1)
+        nShapesPerElement = ansatz.nShapesPerElement()
+        nVal = nShapesPerElement * nShapesPerElement
         row = np.zeros(nVal * n, dtype=np.uint)
         col = np.zeros(nVal * n, dtype=np.uint)
         valM = np.zeros(nVal * n)
@@ -212,9 +105,9 @@ class TripletSystem:
 
         for iElement in range(n):
             lm = ansatz.locationMap(iElement)
-            Me = np.zeros((p + 1, p + 1))
-            Ke = np.zeros((p + 1, p + 1))
-            Fe = np.zeros(p + 1)
+            Me = np.zeros((nShapesPerElement, nShapesPerElement))
+            Ke = np.zeros((nShapesPerElement, nShapesPerElement))
+            Fe = np.zeros(nShapesPerElement)
             points = quadrature.points[iElement]
             weights = quadrature.weights[iElement]
 
@@ -229,8 +122,8 @@ class TripletSystem:
                 mass += weights[j] * alpha(points[j])
 
             eSlice = slice(nVal * iElement, nVal * (iElement + 1))
-            row[eSlice] = np.broadcast_to(lm, (p + 1, p + 1)).T.ravel()
-            col[eSlice] = np.broadcast_to(lm, (p + 1, p + 1)).ravel()
+            row[eSlice] = np.broadcast_to(lm, (nShapesPerElement, nShapesPerElement)).T.ravel()
+            col[eSlice] = np.broadcast_to(lm, (nShapesPerElement, nShapesPerElement)).ravel()
             valK[eSlice] = Ke.ravel()
             valM[eSlice] = Me.ravel()
             F[lm] += Fe
@@ -539,6 +432,10 @@ def createAnsatz(ansatzType, continuity, p, grid):
         k = eval(continuity)
         k = max(0, min(k, p - 1))
         ansatz = SplineAnsatz(grid, p, k)
+    elif ansatzType == 'InterpolatorySpline':
+        k = eval(continuity)
+        k = max(0, min(k, p - 1))
+        ansatz = InterpolatorySplineAnsatz(grid, p, k)
     elif ansatzType == 'Lagrange':
         #gllPoints = GLL(p + 1)
         gllPoints = gll.computeGllPoints(p + 1)
@@ -546,7 +443,7 @@ def createAnsatz(ansatzType, continuity, p, grid):
         # gllPoints[0][-1] -=1e-16
         ansatz = LagrangeAnsatz(grid, gllPoints[0])
     else:
-        print("Error! Choose ansatzType 'Spline' or 'Lagrange'")
+        print("Error! Choose ansatzType 'Spline' or 'Lagrange' or 'InterpolatorySpline'.")
         return None
 
     return ansatz

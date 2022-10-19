@@ -10,7 +10,7 @@ from waves1d import *
 
 
 p = 3
-n = 5
+n = 10
 
 left = 0
 right = 1.0
@@ -28,6 +28,8 @@ ng = len(t) - p - 1
 g = np.zeros(ng)
 for i in range(ng):
     g[i] = np.sum(t[i+1:i+p+1]) / p
+
+#g = np.linspace(left, right, ng)
 
 #t[1] = 0.1
 #t[-2] = 1.1
@@ -77,14 +79,14 @@ for i in range(len(t) - 2 * p - 1):
         tyy[j] = invTAB.dot(yy[j])
         tdy[j] = invTAB.dot(dy[j])
     for j in range(p + 1):
-        ax1.plot(xx, yy[:, j], '-', color=colors[i + j % len(colors)])
-        ax21.plot(xx, dy[:, j], '-', color=colors[i + j % len(colors)])
+        ax1.plot(xx, yy[:, j], '-', color=colors[(i + j) % len(colors)])
+        ax21.plot(xx, dy[:, j], '-', color=colors[(i + j) % len(colors)])
     for j in range(nC):
         ax2.plot(xx, tyy[:, j], '-', color=colors[j % len(colors)])
         ax22.plot(xx, tdy[:, j], '-', color=colors[j % len(colors)])
-    for j in range(5):
+    for j in range(3):
         ax3.semilogy(xx, np.abs(tyy[:, j] * tyy[:, j])+1e-15, '-', color=colors[j % len(colors)])
-        ax23.semilogy(xx, np.abs(tdy[:, j] * tdy[:, j])+1e-15, '--', color=colors[j % len(colors)])
+        ax23.semilogy(xx, np.abs(tdy[:, j] * tdy[:, j])+1e-15, '-', color=colors[j % len(colors)])
 
 ax1.plot(g, g*0, 'o', label='Greville')
 ax1.plot(t, np.zeros(t.size), '-+', label='knots')

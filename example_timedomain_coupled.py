@@ -12,7 +12,7 @@ from progress import *
 # problem
 left = 0
 right = 2.0
-boundary = 1.0
+boundary = 1.0 - 0.2 * 2.0/50
 
 
 def alphaF(x):
@@ -34,9 +34,9 @@ source = RicklersWavelet(1.0, alphaF)
 ansatzType = 'Lagrange'
 continuity = '0'
 spaceTreeDepth = 40
-n = 51
+n = 50
 p = 3
-tMax = 20
+tMax = 2
 nt = 10000
 dt = tMax / nt
 

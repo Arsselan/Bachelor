@@ -11,17 +11,18 @@ from waves1d import *
 problemType = 'N'
 left = 0
 right = 1.2
-extra = 0.219
+extra = 0.219*0
 
 # method
 p = 3
 ansatzType = 'Spline'
+#ansatzType = 'InterpolatorySpline'
 #ansatzType = 'Lagrange'
 
 continuity = 'p-1'
 spectral = False
 
-selective = True
+selective = False
 mass = 'RS'
 #mass = 'CON'
 

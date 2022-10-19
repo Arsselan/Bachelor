@@ -12,25 +12,28 @@ from progress import *
 
 # problem
 left = 0
-right = 2.0
+right = 1.0
 extra = 0.0
 
 # method
 ansatzType = 'Lagrange'
-# ansatzType = 'Spline'
+spectral = True
+
+#ansatzType = 'Spline'
 continuity = '0'
 
 depth = 40
-p = 4
-n = 25
+p = 2
+k = eval(continuity)
+n = int(200 / (p - k))
 
-tMax = 10
+tMax = 2.5
 nt = 1000
 dt = tMax / nt
 
 # create grid and domain
 grid = UniformGrid(left, right, n)
-rightBoundary = right - extra - grid.elementSize * 15
+rightBoundary = right - extra - grid.elementSize * 0.8
 L = rightBoundary
 pi = np.pi
 
@@ -38,12 +41,12 @@ pi = np.pi
 def alpha(x):
     if left + extra <= x <= rightBoundary:
         return 1.0
-    return 1e-20
+    return 1e-10
 
 
 domain = Domain(alpha)
 
-source = sources.RicklersWavelet(1.0, alpha)
+source = sources.RicklersWavelet(10.0, alpha)
 
 # create ansatz and quadrature
 ansatz = createAnsatz(ansatzType, continuity, p, grid)
@@ -51,11 +54,28 @@ gaussPoints = np.polynomial.legendre.leggauss(p + 1)
 quadrature = SpaceTreeQuadrature(grid, gaussPoints, domain, depth)
 
 # create system
-system = TripletSystem.fromOneQuadrature(ansatz, quadrature, source.fx)
-system.findZeroDof(-1e60)
-M, K, MHRZ = system.createSparseMatrices(returnHRZ=True)
+gaussPointsM = GLL(p + 1)
+quadratureM = SpaceTreeQuadrature(grid, gaussPointsM, domain, depth)
+
+gaussPointsK = np.polynomial.legendre.leggauss(p + 1)
+quadratureK = SpaceTreeQuadrature(grid, gaussPointsK, domain, depth)
+
+# create system
+if spectral:
+    system = TripletSystem.fromTwoQuadratures(ansatz, quadratureM, quadratureK, source.fx)
+else:
+    system = TripletSystem.fromOneQuadrature(ansatz, quadratureK, source.fx)
+
+# system = TripletSystem.fromOneQuadrature(ansatz, quadrature, source.fx)
+
+system.findZeroDof(0)
+if len(system.zeroDof) > 0:
+    print("Found zero dof: " + str(system.zeroDof))
+
+M, K, MHRZ, MRS = system.createSparseMatrices(returnHRZ=True, returnRS=True)
 F = system.getReducedVector(system.F)
-M = MHRZ
+#M = MHRZ
+#M = MRS
 
 # compute critical time step size
 w = scipy.sparse.linalg.eigs(K, 1, M.toarray(), which='LM', return_eigenvectors=False)
@@ -76,6 +96,27 @@ factorized = scipy.sparse.linalg.splu(M)
 print("Time integration ... ", flush=True)
 
 u = np.zeros((nt + 1, M.shape[0]))
+
+c = 1
+sigma = c / 10 / 2 / np.pi
+
+if False:
+    if ansatzType == 'Lagrange':
+        nodes = np.linspace(grid.left, grid.right, grid.nElements * 2 + 1)
+        u[0] = system.getReducedVector( np.exp((-(nodes - dt * c) * (nodes - dt * c)) / (2 * sigma ** 2)) + np.exp(
+            (-(nodes + dt * c) * (nodes + dt * c)) / (2 * sigma ** 2)) )
+        u[1] = system.getReducedVector( 2 * np.exp(-nodes * nodes / (2 * sigma ** 2)) )
+    else:
+        nodes = np.linspace(grid.left, grid.right, ansatz.nDof())
+        mat = ansatz.interpolationMatrix(nodes, 0)
+        u0 = np.exp((-(nodes - dt * c) * (nodes - dt * c)) / (2 * sigma ** 2)) + np.exp(
+            (-(nodes + dt * c) * (nodes + dt * c)) / (2 * sigma ** 2))
+        u1 = 2 * np.exp(-nodes * nodes / (2 * sigma ** 2))
+
+        invI = np.linalg.inv(mat.toarray())
+        u[0] = invI.dot(u0)
+        u[1] = invI.dot(u1)
+
 fullU = np.zeros((nt + 1, ansatz.nDof()))
 evalU = 0 * fullU
 
@@ -133,7 +174,7 @@ def postProcess():
     plt.xlabel('solution')
     plt.ylabel('x')
 
-    animationSpeed = 1
+    animationSpeed = 4
 
     def prepareFrame(i):
         plt.title(title + " time %3.2e" % i)
