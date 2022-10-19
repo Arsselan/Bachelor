@@ -9,8 +9,8 @@ import bspline
 from waves1d import *
 
 
-p = 2
-n = 3
+p = 3
+n = 5
 
 left = 0
 right = 1.0
@@ -41,10 +41,22 @@ invT = np.linalg.inv(T)
 
 # plot
 print("Plotting...", flush=True)
-fig, (ax1, ax2) = plt.subplots(1, 2)
+fig, ax = plt.subplots(2, 3)
 
-ax1.set_xlim(left - 0.1, right + 0.1)
+ax1 = ax[0][0]
+ax2 = ax[0][1]
+ax3 = ax[0][2]
+ax21 = ax[1][0]
+ax22 = ax[1][1]
+ax23 = ax[1][2]
+
+ax1.set_title("B-spline basis")
 ax1.set_ylim(-0.5, 1.5)
+
+ax2.set_title("Transformed basis")
+ax2.set_ylim(-0.5, 1.5)
+
+ax3.set_title("Transformed basis squared + 1e-15")
 
 colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
@@ -56,20 +68,23 @@ for i in range(len(t) - 2 * p - 1):
     yy = np.zeros((nPoints, p + 1))
     dy = np.zeros((nPoints, p + 1))
     tyy = np.zeros((nPoints, nC))
+    tdy = np.zeros((nPoints, nC))
     for j in range(len(xx)):
         ders = bspline.evaluateBSplineBases(p + i, xx[j], p, 1, t)
         yy[j] = ders[0]
         dy[j] = ders[1]
-        #tyy[j] = invT.T[i:i+p+1, i:i+p+1].dot(yy[j])
-        #tyy[j] = np.zeros(p+1)
-        #TAB = T[i:i + p + 1, i:i + p + 1]
         invTAB = invT[:, ansatz.locationMap(i)]
         tyy[j] = invTAB.dot(yy[j])
+        tdy[j] = invTAB.dot(dy[j])
     for j in range(p + 1):
-        ax1.plot(xx, yy[:, j], '-')
-        #ax2.plot(xx, dy[:, j], '-')
+        ax1.plot(xx, yy[:, j], '-', color=colors[i + j % len(colors)])
+        ax21.plot(xx, dy[:, j], '-', color=colors[i + j % len(colors)])
     for j in range(nC):
-        ax2.plot(xx, tyy[:, j], '-', color=colors[j])
+        ax2.plot(xx, tyy[:, j], '-', color=colors[j % len(colors)])
+        ax22.plot(xx, tdy[:, j], '-', color=colors[j % len(colors)])
+    for j in range(5):
+        ax3.semilogy(xx, np.abs(tyy[:, j] * tyy[:, j])+1e-15, '-', color=colors[j % len(colors)])
+        ax23.semilogy(xx, np.abs(tdy[:, j] * tdy[:, j])+1e-15, '--', color=colors[j % len(colors)])
 
 ax1.plot(g, g*0, 'o', label='Greville')
 ax1.plot(t, np.zeros(t.size), '-+', label='knots')
