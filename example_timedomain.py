@@ -12,25 +12,21 @@ from progress import *
 
 # problem
 left = 0
-right = 1.0
+right = 0.125
 extra = 0.0
+#factor = 0.0
 
 # method
-ansatzType = 'Lagrange'
-spectral = True
+#ansatzType = 'Lagrange'
+#spectral = True
 
-#ansatzType = 'Spline'
+ansatzType = 'Spline'
 continuity = 'p-1'
 
 depth = 40
-p = 3
-n = 1000
-k = eval(continuity)
-n = int(n / (p - k))
+p = 2
+n = 50
 
-tMax = 2.5
-nt = 1000
-dt = tMax / nt
 
 # corrections
 if ansatzType == 'Lagrange':
@@ -39,24 +35,30 @@ if ansatzType == 'Lagrange':
 if ansatzType == 'Spline':
     spectral = False
 
+k = eval(continuity)
+n = int(n / (p - k))
 
 # create grid and domain
 grid = UniformGrid(left, right, n)
-rightBoundary = right - extra - grid.elementSize * 5.8
+rightBoundary = right - extra - grid.elementSize * factor
 L = rightBoundary
 pi = np.pi
+
+tMax = rightBoundary*2
+nt = 10000
+dt = tMax / nt
 
 
 def alpha(x):
     if left + extra <= x <= rightBoundary:
         return 1.0
-    return 1e-10
+    return 0
 
 
 domain = Domain(alpha)
 
-source = sources.RicklersWavelet(10.0, alpha)
-#source = sources.NoSource()
+#source = sources.RicklersWavelet(10.0, alpha)
+source = sources.NoSource()
 
 # create ansatz and quadrature
 ansatz = createAnsatz(ansatzType, continuity, p, grid)
@@ -84,8 +86,8 @@ if len(system.zeroDof) > 0:
 
 M, K, MHRZ, MRS = system.createSparseMatrices(returnHRZ=True, returnRS=True)
 F = system.getReducedVector(system.F)
-M = MHRZ
-#M = MRS
+#M = MHRZ
+M = MRS
 
 # compute critical time step size
 w = scipy.sparse.linalg.eigs(K, 1, M.toarray(), which='LM', return_eigenvectors=False)
@@ -96,8 +98,10 @@ print("Critical time step size is %e" % critDeltaT)
 print("Chosen time step size is %e" % dt)
 
 dt = critDeltaT * 0.1
+dt = 1e-5
 nt = int(tMax / dt + 0.5)
 dt = tMax / nt
+
 print("Corrected time step size is %e" % dt)
 
 # solve sparse
@@ -107,38 +111,24 @@ print("Time integration ... ", flush=True)
 
 u = np.zeros((nt + 1, M.shape[0]))
 
+u0, u1 = sources.applyGaussianInitialConditions(ansatz, dt)
 
-def applyGaussianInitialConditions(u0, u1):
-    c = 1
-    sigma = c / 10 / 2 / np.pi
-
-    if ansatzType == 'Lagrange':
-        nodes = np.linspace(grid.left, grid.right, grid.nElements * 2 + 1)
-        u[0] = system.getReducedVector( np.exp((-(nodes - dt * c) * (nodes - dt * c)) / (2 * sigma ** 2)) + np.exp(
-            (-(nodes + dt * c) * (nodes + dt * c)) / (2 * sigma ** 2)) )
-        u[1] = system.getReducedVector( 2 * np.exp(-nodes * nodes / (2 * sigma ** 2)) )
-    else:
-        nodes = np.linspace(grid.left, grid.right, ansatz.nDof())
-        mat = ansatz.interpolationMatrix(nodes, 0)
-        u0 = np.exp((-(nodes - dt * c) * (nodes - dt * c)) / (2 * sigma ** 2)) + np.exp(
-            (-(nodes + dt * c) * (nodes + dt * c)) / (2 * sigma ** 2))
-        u1 = 2 * np.exp(-nodes * nodes / (2 * sigma ** 2))
-
-        invI = np.linalg.inv(mat.toarray())
-        u[0] = invI.dot(u0)
-        u[1] = invI.dot(u1)
-
-
-#applyGaussianInitialConditions(u[0], u[1])
+u[0] = system.getReducedVector(u0)
+u[1] = system.getReducedVector(u1)
 
 fullU = np.zeros((nt + 1, ansatz.nDof()))
 evalU = 0 * fullU
 
-nodes = np.linspace(grid.left, grid.right, ansatz.nDof())
+nodes = np.linspace(grid.left, rightBoundary, ansatz.nDof())
 I = ansatz.interpolationMatrix(nodes)
 
 nodes2 = np.linspace(grid.left, rightBoundary, 1000)
 I2 = ansatz.interpolationMatrix(nodes2)
+
+for i in range(2):
+    fullU[i] = system.getFullVector(u[i])
+    evalU[i] = I * fullU[i]
+    evalU2 = I2 * fullU[i]
 
 # printProgressBar(0, nt+1, prefix = 'Progress:', suffix = 'Complete', length = 50)
 
@@ -157,11 +147,11 @@ for i in range(2, nt + 1):
 # evalU2 = nodes2 * 0
 # for j in range(ansatz.nDof()):
 #    evalU2[j] = ansatz.interpolate( nodes2[j], fullU[i] )
-print("Error: %e " % errorSum)
+#print("Error: %e " % errorSum)
 
 
 # Plot animation
-def postProcess():
+def postProcess(animationSpeed=4):
     figure, ax = plt.subplots()
     ax.set_xlim(grid.left, grid.right)
     ax.set_ylim(-2, 2)
@@ -188,19 +178,22 @@ def postProcess():
     plt.xlabel('solution')
     plt.ylabel('x')
 
-    animationSpeed = 4
-
     def prepareFrame(i):
-        plt.title(title + " time %3.2e" % i)
-        line.set_ydata(fullU[int(round(i / tMax * nt))])
-        line2.set_ydata(evalU[int(round(i / tMax * nt))])
+        step = int(round(i / tMax * nt))
+        plt.title(title + " time %3.2e step %d" % (i, step))
+        line.set_ydata(fullU[step])
+        line2.set_ydata(evalU[step])
         line3.set_ydata(source.uxt(nodes, i + dt))
         return line,
 
     frames = np.linspace(0, tMax, round(tMax * 60 / animationSpeed))
     animation = anim.FuncAnimation(figure, func=prepareFrame, frames=frames, interval=1000 / 60, repeat=False)
-
+    #prepareFrame(1*dt)
     plt.show()
 
 
-postProcess()
+error = np.linalg.norm(evalU[2] - evalU[-1])
+print("Error: %e" % error)
+
+
+#postProcess(1)

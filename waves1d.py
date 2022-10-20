@@ -1,4 +1,3 @@
-import os
 import matplotlib.pyplot as plt
 import matplotlib.animation as anim
 import scipy.sparse
@@ -11,7 +10,7 @@ import gll
 
 from sandbox.gllTemp import *
 from fem1d.ansatz import *
-
+from fem1d.utilities import *
 
 class UniformGrid:
     def __init__(self, left, right, nElements):
@@ -291,30 +290,6 @@ class TripletSystem:
 
     def getReducedVector(self, fullVector):
         return fullVector[self.nonZeroDof]
-
-
-def find_nearest(array, value):
-    array = np.asarray(array)
-    idx = (np.abs(array - value)).argmin()
-    return array[idx]
-
-
-def find_nearest_index(array, value):
-    array = np.asarray(array)
-    idx = (np.abs(array - value)).argmin()
-    return idx
-
-
-def plot(ptx, pty):
-    figure, ax = plt.subplots()
-    ax.plot(ptx, pty)
-    plt.show()
-
-
-def getFileBaseNameAndCreateDir(path, baseName):
-    if not os.path.exists(path):
-        os.makedirs(path)
-    return path + baseName
 
 
 def getReducedVector(systemF, systemS):

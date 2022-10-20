@@ -67,6 +67,22 @@ class NoSource:
         return 0.0
 
 
+def applyGaussianInitialConditions(ansatz, dt):
+    c = 1
+    sigma = c / 10 / 2 / np.pi
+
+    nodes = np.linspace(ansatz.grid.left, ansatz.grid.right, ansatz.nDof())
+    mat = ansatz.interpolationMatrix(nodes, 0)
+    u0 = np.exp((-(nodes - dt * c) * (nodes - dt * c)) / (2 * sigma ** 2)) + np.exp(
+        (-(nodes + dt * c) * (nodes + dt * c)) / (2 * sigma ** 2))
+    u1 = 2 * np.exp(-nodes * nodes / (2 * sigma ** 2))
+
+    invI = np.linalg.inv(mat.toarray())
+    u0 = invI.dot(u0)
+    u1 = invI.dot(u1)
+
+    return u0, u1
+
 
 def plotSource(source, left, right, n):
     xx = np.linspace(left, right, n)
