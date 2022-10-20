@@ -15,8 +15,8 @@ extra = 0.219*0
 
 # method
 p = 3
-ansatzType = 'Spline'
-#ansatzType = 'InterpolatorySpline'
+#ansatzType = 'Spline'
+ansatzType = 'InterpolatorySpline'
 #ansatzType = 'Lagrange'
 
 continuity = 'p-1'
@@ -26,8 +26,8 @@ selective = False
 mass = 'RS'
 #mass = 'CON'
 
-#eigenvalueSearch = 'nearest'
-eigenvalueSearch = 'number'
+eigenvalueSearch = 'nearest'
+#eigenvalueSearch = 'number'
 
 depth = 40
 

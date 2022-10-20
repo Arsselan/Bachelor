@@ -10,19 +10,21 @@ from waves1d import *
 # problem
 left = 0
 right = 1.2
-extra = 0.19
+extra = 0.0
 eigenvalue = 6
 
 # analysis
 nh = 8
 
 # method
-ansatzType = 'Lagrange'
-# ansatzType = 'Spline'
+#ansatzType = 'Lagrange'
+ansatzType = 'InterpolatorySpline'
 
-mass = 'CON'
+continuity = 'p-1'
+
+# mass = 'CON'
 # mass = 'HRZ'
-# mass = 'RS'
+mass = 'RS'
 
 depth = 40
 
@@ -56,19 +58,7 @@ def runStudy(n, p, spectral):
     grid = UniformGrid(left, right, n)
 
     # create ansatz
-    if ansatzType == 'Spline':
-        k = eval(continuity)
-        k = max(0, min(k, p - 1))
-        ansatz = SplineAnsatz(grid, p, k)
-    elif ansatzType == 'Lagrange':
-        gllPoints = GLL(p + 1)
-        # gllPoints[0][0] += 1e-16
-        # gllPoints[0][-1] -=1e-16
-        ansatz = LagrangeAnsatz(grid, gllPoints[0])
-    else:
-        print("Error! Choose ansatzType 'Spline' or 'Lagrange'")
-
-    # print(ansatz.knots)
+    ansatz = createAnsatz(ansatzType, continuity, p, grid)
 
     # create quadrature points
     gaussPointsM = GLL(p + 1)
@@ -131,79 +121,157 @@ def runStudy(n, p, spectral):
     return dof, np.real(wNum), eVector
 
 
-plt.rcParams["figure.figsize"] = (13, 6)
+def plotVectorsAndValues():
+    plt.rcParams["figure.figsize"] = (13, 6)
 
-figure, ax = plt.subplots(1, 2)
-plt.rcParams['axes.titleweight'] = 'bold'
-colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    figure, ax = plt.subplots(1, 2)
+    plt.rcParams['axes.titleweight'] = 'bold'
+    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
-ax[0].set_xlim(20, 450)
-ax[0].set_ylim(1e-12, 0.1)
-if extra != 0:
-    ax[1].set_ylim(1e-8, 0.1)
-else:
-    ax[1].set_ylim(1e-11, 0.1)
+    ax[0].set_xlim(20, 450)
+    ax[0].set_ylim(1e-12, 0.1)
+    if extra != 0:
+        ax[1].set_ylim(1e-8, 0.1)
+    else:
+        ax[1].set_ylim(1e-11, 0.1)
 
-for p in [1, 2, 3, 4]:
-    print("p = %d" % p)
-    minws = [0] * nh
-    valErrors = [0] * nh
-    vecErrors = [0] * nh
-    dofs = [0] * nh
+    for p in [1, 2, 3, 4]:
+        print("p = %d" % p)
+        minws = [0] * nh
+        valErrors = [0] * nh
+        vecErrors = [0] * nh
+        dofs = [0] * nh
 
-    continuity = 'p-1'
-    if ansatzType == 'Lagrange':
-        continuity = '0'
-    k = eval(continuity)
-
-    for i in range(nh):
-        n = int((24 / (p - k)) * 1.5 ** i)
-        print("n = %d" % n)
-        dofs[i], minws[i], eVector = runStudy(n, p, False)
-        valErrors[i] = np.abs(minws[i] - wExact) / wExact
-        vecErrors[i] = np.linalg.norm(eVector - vExact) / np.linalg.norm(vExact)
-        print("dof = %e, w = %e, eVec = %e, eVal = %e" % (dofs[i], minws[i], vecErrors[i], valErrors[i]))
-    ax[0].loglog(dofs, valErrors, '-o', label='p=' + str(p), color=colors[p - 1])
-    ax[1].loglog(dofs, vecErrors, '-o', label='p=' + str(p), color=colors[p - 1])
-    if ansatzType == 'Lagrange':
-        for i in range(nh):
-            n = int((24 / (p - k)) * 1.5 ** i)
-            print("n = %d" % n)
-            dofs[i], minws[i], eVector = runStudy(n, p, True)
-            valErrors[i] = np.abs(minws[i] - wExact) / wExact
-            vecErrors[i] = np.linalg.norm(eVector - vExact) / np.linalg.norm(vExact)
-            print("dof = %e, w = %e, eVec = %e, eVal = %e" % (dofs[i], minws[i], vecErrors[i], valErrors[i]))
-        ax[0].loglog(dofs, valErrors, '--x', label='p=' + str(p) + ' spectral', color=colors[p - 1])
-        ax[1].loglog(dofs, vecErrors, '--x', label='p=' + str(p) + ' spectral', color=colors[p - 1])
-    if ansatzType == 'Spline':
-        continuity = '0'
+        continuity = 'p-1'
+        if ansatzType == 'Lagrange':
+            continuity = '0'
         k = eval(continuity)
+
         for i in range(nh):
             n = int((24 / (p - k)) * 1.5 ** i)
             print("n = %d" % n)
-            dofs[i], minws[i], eVector = runStudy(n, p, True)
+            dofs[i], minws[i], eVector = runStudy(n, p, False)
             valErrors[i] = np.abs(minws[i] - wExact) / wExact
             vecErrors[i] = np.linalg.norm(eVector - vExact) / np.linalg.norm(vExact)
             print("dof = %e, w = %e, eVec = %e, eVal = %e" % (dofs[i], minws[i], vecErrors[i], valErrors[i]))
-        ax[0].loglog(dofs, valErrors, '--x', label='p=' + str(p) + ' C0', color=colors[p - 1])
-        ax[1].loglog(dofs, vecErrors, '--x', label='p=' + str(p) + ' C0', color=colors[p - 1])
+        ax[0].loglog(dofs, valErrors, '-o', label='p=' + str(p), color=colors[p - 1])
+        ax[1].loglog(dofs, vecErrors, '-o', label='p=' + str(p), color=colors[p - 1])
+        if ansatzType == 'Lagrange':
+            for i in range(nh):
+                n = int((24 / (p - k)) * 1.5 ** i)
+                print("n = %d" % n)
+                dofs[i], minws[i], eVector = runStudy(n, p, True)
+                valErrors[i] = np.abs(minws[i] - wExact) / wExact
+                vecErrors[i] = np.linalg.norm(eVector - vExact) / np.linalg.norm(vExact)
+                print("dof = %e, w = %e, eVec = %e, eVal = %e" % (dofs[i], minws[i], vecErrors[i], valErrors[i]))
+            ax[0].loglog(dofs, valErrors, '--x', label='p=' + str(p) + ' spectral', color=colors[p - 1])
+            ax[1].loglog(dofs, vecErrors, '--x', label='p=' + str(p) + ' spectral', color=colors[p - 1])
+        if False:
+            if ansatzType == 'Spline':
+                continuity = '0'
+                k = eval(continuity)
+                for i in range(nh):
+                    n = int((24 / (p - k)) * 1.5 ** i)
+                    print("n = %d" % n)
+                    dofs[i], minws[i], eVector = runStudy(n, p, True)
+                    valErrors[i] = np.abs(minws[i] - wExact) / wExact
+                    vecErrors[i] = np.linalg.norm(eVector - vExact) / np.linalg.norm(vExact)
+                    print("dof = %e, w = %e, eVec = %e, eVal = %e" % (dofs[i], minws[i], vecErrors[i], valErrors[i]))
+                ax[0].loglog(dofs, valErrors, '--x', label='p=' + str(p) + ' C0', color=colors[p - 1])
+                ax[1].loglog(dofs, vecErrors, '--x', label='p=' + str(p) + ' C0', color=colors[p - 1])
 
-ax[0].legend()
-ax[1].legend()
+    ax[0].legend()
+    ax[1].legend()
 
-title = ansatzType
-title += ' ' + mass
-title += ' d=' + str(extra)
-title += ' ' + eigenvalueSearch
-figure.suptitle(title)
+    title = ansatzType
+    title += ' ' + mass
+    title += ' d=' + str(extra)
+    title += ' ' + eigenvalueSearch
+    figure.suptitle(title)
 
-ax[0].set_title('Eigenvalues')
-ax[1].set_title('Eigenvectors')
+    ax[0].set_title('Eigenvalues')
+    ax[1].set_title('Eigenvectors')
 
-ax[0].set_xlabel('degrees of freedom')
-ax[1].set_xlabel('degrees of freedom')
-ax[0].set_ylabel('relative error in sixth eigenvalue ')
-ax[1].set_ylabel('relative error in sixth eigenvector ')
+    ax[0].set_xlabel('degrees of freedom')
+    ax[1].set_xlabel('degrees of freedom')
+    ax[0].set_ylabel('relative error in sixth eigenvalue ')
+    ax[1].set_ylabel('relative error in sixth eigenvector ')
 
-plt.savefig('results/eigen_' + title.replace(' ', '_') + '2.pdf')
-plt.show()
+    plt.savefig('results/eigen_' + title.replace(' ', '_') + '2.pdf')
+    plt.show()
+
+
+#plotVectorsAndValues()
+
+
+def plotVectors():
+    figure, ax = plt.subplots(1, 1)
+    plt.rcParams['axes.titleweight'] = 'bold'
+    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+
+    if extra != 0:
+        ax.set_ylim(1e-8, 0.1)
+    else:
+        ax.set_ylim(1e-11, 0.1)
+
+    for p in [1, 2, 3, 4]:
+        print("p = %d" % p)
+        minws = [0] * nh
+        valErrors = [0] * nh
+        vecErrors = [0] * nh
+        dofs = [0] * nh
+
+        continuity = 'p-1'
+        if ansatzType == 'Lagrange':
+            continuity = '0'
+        k = eval(continuity)
+
+        for i in range(nh):
+            n = int((24 / (p - k)) * 1.5 ** i)
+            print("n = %d" % n)
+            dofs[i], minws[i], eVector = runStudy(n, p, False)
+            valErrors[i] = np.abs(minws[i] - wExact) / wExact
+            vecErrors[i] = np.linalg.norm(eVector - vExact) / np.linalg.norm(vExact)
+            print("dof = %e, w = %e, eVec = %e, eVal = %e" % (dofs[i], minws[i], vecErrors[i], valErrors[i]))
+        ax.loglog(dofs, vecErrors, '-o', label='p=' + str(p), color=colors[p - 1])
+        if ansatzType == 'Lagrange':
+            for i in range(nh):
+                n = int((24 / (p - k)) * 1.5 ** i)
+                print("n = %d" % n)
+                dofs[i], minws[i], eVector = runStudy(n, p, True)
+                valErrors[i] = np.abs(minws[i] - wExact) / wExact
+                vecErrors[i] = np.linalg.norm(eVector - vExact) / np.linalg.norm(vExact)
+                print("dof = %e, w = %e, eVec = %e, eVal = %e" % (dofs[i], minws[i], vecErrors[i], valErrors[i]))
+            ax.loglog(dofs, vecErrors, '--x', label='p=' + str(p) + ' spectral', color=colors[p - 1])
+        if False:
+            if ansatzType == 'Spline':
+                continuity = '0'
+                k = eval(continuity)
+                for i in range(nh):
+                    n = int((24 / (p - k)) * 1.5 ** i)
+                    print("n = %d" % n)
+                    dofs[i], minws[i], eVector = runStudy(n, p, True)
+                    valErrors[i] = np.abs(minws[i] - wExact) / wExact
+                    vecErrors[i] = np.linalg.norm(eVector - vExact) / np.linalg.norm(vExact)
+                    print("dof = %e, w = %e, eVec = %e, eVal = %e" % (dofs[i], minws[i], vecErrors[i], valErrors[i]))
+                ax.loglog(dofs, vecErrors, '--x', label='p=' + str(p) + ' C0', color=colors[p - 1])
+
+    ax.legend()
+
+    title = ansatzType
+    title += ' ' + mass
+    title += ' d=' + str(extra)
+    title += ' ' + eigenvalueSearch
+
+    ax.set_title(title)
+    ax.set_xlabel('degrees of freedom')
+    ax.set_ylabel('relative error in sixth eigenvector ')
+
+    fileBaseName = getFileBaseNameAndCreateDir("results/example_eigenvector_convergence/", title.replace(' ', '_'))
+
+    plt.savefig(fileBaseName + '.pdf')
+
+    plt.show()
+
+
+plotVectors()

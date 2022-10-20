@@ -20,20 +20,29 @@ ansatzType = 'Lagrange'
 spectral = True
 
 #ansatzType = 'Spline'
-continuity = '0'
+continuity = 'p-1'
 
 depth = 40
-p = 2
+p = 3
+n = 1000
 k = eval(continuity)
-n = int(200 / (p - k))
+n = int(n / (p - k))
 
 tMax = 2.5
 nt = 1000
 dt = tMax / nt
 
+# corrections
+if ansatzType == 'Lagrange':
+    continuity = '0'
+
+if ansatzType == 'Spline':
+    spectral = False
+
+
 # create grid and domain
 grid = UniformGrid(left, right, n)
-rightBoundary = right - extra - grid.elementSize * 0.8
+rightBoundary = right - extra - grid.elementSize * 5.8
 L = rightBoundary
 pi = np.pi
 
@@ -47,6 +56,7 @@ def alpha(x):
 domain = Domain(alpha)
 
 source = sources.RicklersWavelet(10.0, alpha)
+#source = sources.NoSource()
 
 # create ansatz and quadrature
 ansatz = createAnsatz(ansatzType, continuity, p, grid)
@@ -74,7 +84,7 @@ if len(system.zeroDof) > 0:
 
 M, K, MHRZ, MRS = system.createSparseMatrices(returnHRZ=True, returnRS=True)
 F = system.getReducedVector(system.F)
-#M = MHRZ
+M = MHRZ
 #M = MRS
 
 # compute critical time step size
@@ -97,10 +107,11 @@ print("Time integration ... ", flush=True)
 
 u = np.zeros((nt + 1, M.shape[0]))
 
-c = 1
-sigma = c / 10 / 2 / np.pi
 
-if False:
+def applyGaussianInitialConditions(u0, u1):
+    c = 1
+    sigma = c / 10 / 2 / np.pi
+
     if ansatzType == 'Lagrange':
         nodes = np.linspace(grid.left, grid.right, grid.nElements * 2 + 1)
         u[0] = system.getReducedVector( np.exp((-(nodes - dt * c) * (nodes - dt * c)) / (2 * sigma ** 2)) + np.exp(
@@ -116,6 +127,9 @@ if False:
         invI = np.linalg.inv(mat.toarray())
         u[0] = invI.dot(u0)
         u[1] = invI.dot(u1)
+
+
+#applyGaussianInitialConditions(u[0], u[1])
 
 fullU = np.zeros((nt + 1, ansatz.nDof()))
 evalU = 0 * fullU

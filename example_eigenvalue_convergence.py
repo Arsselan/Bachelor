@@ -20,7 +20,8 @@ nh = 8
 
 # method
 #ansatzType = 'Lagrange'
-ansatzType = 'Spline'
+#ansatzType = 'Spline'
+ansatzType = 'InterpolatorySpline'
 continuity = 'p-1'
 
 
@@ -30,9 +31,9 @@ if ansatzType == 'Lagrange':
 axLimitLowY = 1e-13
 axLimitHighY = 1e-0
 
-#mass = 'CON'
+mass = 'CON'
 #mass = 'HRZ'
-mass = 'RS'
+#mass = 'RS'
 depth = 40
 eigenvalueSearch = 'nearest'
 #eigenvalueSearch = 'number'

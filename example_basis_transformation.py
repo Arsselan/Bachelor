@@ -10,7 +10,7 @@ from waves1d import *
 
 
 p = 3
-n = 10
+n = 5
 
 left = 0
 right = 1.0
@@ -44,6 +44,7 @@ invT = np.linalg.inv(T)
 # plot
 print("Plotting...", flush=True)
 fig, ax = plt.subplots(2, 3)
+fig.tight_layout(pad=0.5)
 
 ax1 = ax[0][0]
 ax2 = ax[0][1]

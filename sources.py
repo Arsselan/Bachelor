@@ -50,6 +50,24 @@ class RicklersWavelet:
         return 0.0
 
 
+class NoSource:
+    def __init__(self):
+        pass
+
+    def ft(self, t):
+        return 0
+
+    def fx(self, x):
+        return x * 0
+
+    def fxt(self, x, t):
+        return self.fx(x) * self.ft(t)
+
+    def uxt(self, x, t):
+        return 0.0
+
+
+
 def plotSource(source, left, right, n):
     xx = np.linspace(left, right, n)
     yy = xx * 0

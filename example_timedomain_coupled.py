@@ -36,7 +36,7 @@ continuity = '0'
 spaceTreeDepth = 40
 n = 50
 p = 3
-tMax = 2
+tMax = 10
 nt = 10000
 dt = tMax / nt
 
