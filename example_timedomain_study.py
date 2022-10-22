@@ -2,29 +2,36 @@ import numpy as np
 
 from waves1d import *
 
+ne = 11
+extras = list(np.linspace(0, 0.099, ne)) + list(np.linspace(0.1, 0.199, ne)) + list(np.linspace(0.2, 0.299, ne)) + [
+    0.3] + list(np.linspace(0.3, 0.399, ne)) + [0.4]
 
-factors = []
+extras = np.array(extras) * 0.1 * 0.5
+
+#extras = [0.0, 0.2]
 errors = []
 maxws = []
-nStudies = 300
-for i in range(nStudies+1):
-    factor = 3*i/nStudies
-    factors.append(factor)
-    print("Factor: %e", factor)
+nStudies = len(extras)
+for i in range(nStudies):
+    print("Extra: %e" % extras[i])
+    extra = extras[i]
     exec(open("example_timedomain.py").read())
     maxws.append(np.abs(w))
     errors.append(error)
 
-plot(factors, [errors])
+plot(extras, [errors])
 
-plot(factors, [maxws])
+plot(extras, [maxws])
 
-data = np.ndarray((nStudies+1, 3))
-data[:, 0] = np.array(factors)
+data = np.ndarray((nStudies, 3))
+data[:, 0] = np.array(extras)
 data[:, 1] = np.array(errors)
 data[:, 2] = np.array(maxws)
 
-title = ansatzType + "_RS"
-filename = getFileBaseNameAndCreateDir("results/time_domain_study_fine/", title)
-np.savetxt(filename + ".txt", data)
+title = ansatzType
+if spectral is True:
+    title += "_spectral"
 
+title += "_" + mass
+filename = getFileBaseNameAndCreateDir("results/time_domain_study_extra/", title)
+np.savetxt(filename + ".txt", data)

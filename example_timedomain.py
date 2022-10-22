@@ -12,20 +12,22 @@ from progress import *
 
 # problem
 left = 0
-right = 0.125
-extra = 0.0
-#factor = 0.0
+right = 1.2
+#extra = 0.099 * 0.1
+#extra = 0.005 * 0.8
 
 # method
 #ansatzType = 'Lagrange'
-#spectral = True
+spectral = False
 
-ansatzType = 'Spline'
+ansatzType = 'InterpolatorySpline'
 continuity = 'p-1'
+
+mass = 'CON'
 
 depth = 40
 p = 2
-n = 50
+n = 240
 
 
 # corrections
@@ -40,19 +42,19 @@ n = int(n / (p - k))
 
 # create grid and domain
 grid = UniformGrid(left, right, n)
-rightBoundary = right - extra - grid.elementSize * factor
-L = rightBoundary
+#extra = 0.8*grid.elementSize
+L = grid.right - 2*extra - grid.left
 pi = np.pi
 
-tMax = rightBoundary*2
-nt = 10000
+tMax = L
+nt = 120000
 dt = tMax / nt
 
 
 def alpha(x):
-    if left + extra <= x <= rightBoundary:
+    if left + extra <= x <= right - extra:
         return 1.0
-    return 0
+    return 1e-10
 
 
 domain = Domain(alpha)
@@ -78,76 +80,69 @@ if spectral:
 else:
     system = TripletSystem.fromOneQuadrature(ansatz, quadratureK, source.fx)
 
-# system = TripletSystem.fromOneQuadrature(ansatz, quadrature, source.fx)
-
 system.findZeroDof(0)
 if len(system.zeroDof) > 0:
     print("Found zero dof: " + str(system.zeroDof))
 
 M, K, MHRZ, MRS = system.createSparseMatrices(returnHRZ=True, returnRS=True)
 F = system.getReducedVector(system.F)
-#M = MHRZ
-M = MRS
+
+if mass == 'CON':
+    Muse = M
+elif mass == 'HRZ':
+    Muse = MHRZ
+elif mass == 'RS':
+    Muse = MRS
+else:
+    print("Error! Choose mass 'CON' or 'HRZ' or 'RS'")
 
 # compute critical time step size
-w = scipy.sparse.linalg.eigs(K, 1, M.toarray(), which='LM', return_eigenvectors=False)
+w = scipy.sparse.linalg.eigs(K, 1, Muse.toarray(), which='LM', return_eigenvectors=False)
 w = np.sqrt(w[0] + 0j)
 
 critDeltaT = 2 / abs(w)
 print("Critical time step size is %e" % critDeltaT)
 print("Chosen time step size is %e" % dt)
 
-dt = critDeltaT * 0.1
-dt = 1e-5
-nt = int(tMax / dt + 0.5)
-dt = tMax / nt
+if dt > critDeltaT * 0.9:
+    dt = critDeltaT * 0.9
+    nt = int(tMax / dt + 0.5)
+    dt = tMax / nt
 
 print("Corrected time step size is %e" % dt)
 
 # solve sparse
-factorized = scipy.sparse.linalg.splu(M)
+factorized = scipy.sparse.linalg.splu(Muse)
 
-print("Time integration ... ", flush=True)
-
+# prepare result arrays
 u = np.zeros((nt + 1, M.shape[0]))
-
-u0, u1 = sources.applyGaussianInitialConditions(ansatz, dt)
-
-u[0] = system.getReducedVector(u0)
-u[1] = system.getReducedVector(u1)
-
 fullU = np.zeros((nt + 1, ansatz.nDof()))
+times = np.zeros(nt+1)
+
+nodes = np.linspace(grid.left+extra, grid.right-extra, ansatz.nDof())
+I = ansatz.interpolationMatrix(nodes)
 evalU = 0 * fullU
 
-nodes = np.linspace(grid.left, rightBoundary, ansatz.nDof())
-I = ansatz.interpolationMatrix(nodes)
-
-nodes2 = np.linspace(grid.left, rightBoundary, 1000)
-I2 = ansatz.interpolationMatrix(nodes2)
-
+# set initial conditions
+times[0] = -dt
+times[1] = 0.0
+u0, u1 = sources.applyGaussianInitialConditions(ansatz, dt, -0.6, alpha)
+u[0] = system.getReducedVector(u0)
+u[1] = system.getReducedVector(u1)
 for i in range(2):
     fullU[i] = system.getFullVector(u[i])
     evalU[i] = I * fullU[i]
-    evalU2 = I2 * fullU[i]
 
-# printProgressBar(0, nt+1, prefix = 'Progress:', suffix = 'Complete', length = 50)
+
+# time integration
+print("Time integration ... ", flush=True)
 
 errorSum = 0
 for i in range(2, nt + 1):
-    u[i] = factorized.solve(M * (2 * u[i - 1] - u[i - 2]) + dt ** 2 * (F * source.ft(i * dt) - K * u[i - 1]))
+    times[i] = i*dt
+    u[i] = factorized.solve(Muse * (2 * u[i - 1] - u[i - 2]) + dt ** 2 * (F * source.ft((i-1) * dt) - K * u[i - 1]))
     fullU[i] = system.getFullVector(u[i])
     evalU[i] = I * fullU[i]
-    evalU2 = I2 * fullU[i]
-    errorSum += dt * np.linalg.norm((evalU2 - source.uxt(nodes2, (i + 1) * dt)) / system.nDof())
-
-    # if i % int(nt / 100) == 0:
-    #    print( np.linalg.norm(evalU[i] - uxt(nodes, i*dt )) )
-    # printProgressBar(i, nt + 1, prefix = 'Progress:', suffix = 'Complete', length = 50)
-
-# evalU2 = nodes2 * 0
-# for j in range(ansatz.nDof()):
-#    evalU2[j] = ansatz.interpolate( nodes2[j], fullU[i] )
-#print("Error: %e " % errorSum)
 
 
 # Plot animation
@@ -156,9 +151,10 @@ def postProcess(animationSpeed=4):
     ax.set_xlim(grid.left, grid.right)
     ax.set_ylim(-2, 2)
 
-    ax.plot([rightBoundary, rightBoundary], [-0.1, 0.1], '--', label='domain boundary')
+    ax.plot([left+extra, left+extra], [-0.1, 0.1], '--', label='left boundary')
+    ax.plot([right-extra, right-extra], [-0.1, 0.1], '--', label='right boundary')
 
-    line, = ax.plot(0, 0, label='conrrol points')
+    line, = ax.plot(0, 0, label='conrtol points')
     line.set_xdata(np.linspace(grid.left, grid.right, ansatz.nDof()))
 
     line2, = ax.plot(0, 0, label='numerical')
@@ -188,11 +184,10 @@ def postProcess(animationSpeed=4):
 
     frames = np.linspace(0, tMax, round(tMax * 60 / animationSpeed))
     animation = anim.FuncAnimation(figure, func=prepareFrame, frames=frames, interval=1000 / 60, repeat=False)
-    #prepareFrame(1*dt)
     plt.show()
 
 
-error = np.linalg.norm(evalU[2] - evalU[-1])
+error = np.linalg.norm(evalU[1] - evalU[-1])
 print("Error: %e" % error)
 
 

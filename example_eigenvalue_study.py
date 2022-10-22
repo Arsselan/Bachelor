@@ -12,10 +12,11 @@ left = 0
 right = 1.2
 
 # method
-ansatzType = 'Lagrange'
+#ansatzType = 'Lagrange'
+ansatzType = 'InterpolatorySpline'
 #ansatzType = 'Spline'
-continuity = '0'
-mass = 'RS'
+continuity = 'p-1'
+mass = 'HRZ'
 depth = 40
 spectral = False
 stabilize = 1e-8*0
