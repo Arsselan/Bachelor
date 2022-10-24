@@ -131,4 +131,4 @@ PYBIND11_MODULE(bspline, m) {
     m.def("evaluateBSplineBases", &evaluateBSplineBases, "Evaluate a bspline basis");
 }
 
-// gcc -O3 -Wall -shared -std=c++11 -fPIC $(python3-config --includes) -Ipybind11/include bspline.cpp -o bspline$(python3-config --extension-suffix)
+// g++ -O3 -Wall -shared -std=c++11 -fPIC $(python3-config --includes) -Ipybind11/include bspline.cpp -o bspline$(python3-config --extension-suffix)
