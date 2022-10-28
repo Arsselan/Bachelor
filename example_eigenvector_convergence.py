@@ -10,21 +10,23 @@ from waves1d import *
 # problem
 left = 0
 right = 1.2
-extra = 0.0
+extra = 0.2
 eigenvalue = 6
 
 # analysis
-nh = 8
+#nh = 10
+nh = 450
 
 # method
-#ansatzType = 'Lagrange'
-ansatzType = 'InterpolatorySpline'
+ansatzType = 'Lagrange'
+#ansatzType = 'Spline'
+#ansatzType = 'InterpolatorySpline'
 
 continuity = 'p-1'
 
-# mass = 'CON'
-# mass = 'HRZ'
-mass = 'RS'
+mass = 'CON'
+#mass = 'HRZ'
+#mass = 'RS'
 
 depth = 40
 
@@ -37,7 +39,7 @@ if ansatzType == 'Lagrange':
 L = 1.2 - 2 * extra
 wExact = eigenvalue * np.pi / L
 
-nodesEval = np.linspace(left + extra, right - extra, 1000)
+nodesEval = np.linspace(left + extra, right - extra, 5000)
 vExact = np.cos(eigenvalue * np.pi / L * (nodesEval - extra))
 
 
@@ -47,7 +49,7 @@ vExact = np.cos(eigenvalue * np.pi / L * (nodesEval - extra))
 def alpha(x):
     if left + extra <= x <= right - extra:
         return 1.0
-    return 1e-12
+    return 1e-8
 
 
 domain = Domain(alpha)
@@ -80,10 +82,10 @@ def runStudy(n, p, spectral):
     # solve sparse
     M, K, MHRZ, MRS = system.createSparseMatrices(returnHRZ=True, returnRS=True)
 
-    nEigen = min(K.shape[0] - 2, 2 * eigenvalue)
+    nEigen = K.shape[0] - 2 #min(K.shape[0] - 2, 2 * eigenvalue)
     if mass == 'CON':
-        # w, v = scipy.sparse.linalg.eigs(K, nEigen, M, which='SM', return_eigenvectors=True)
-        w, v = scipy.linalg.eig(K.toarray(), M.toarray(), right=True)
+        w, v = scipy.sparse.linalg.eigs(K, nEigen, M, which='SM', return_eigenvectors=True)
+        #w, v = scipy.linalg.eig(K.toarray(), M.toarray(), right=True)
     elif mass == 'HRZ':
         # w, v = scipy.sparse.linalg.eigs(K, nEigen, MHRZ, which='SM', return_eigenvectors=True)
         w, v = scipy.linalg.eig(K.toarray(), MHRZ.toarray(), right=True)
@@ -99,6 +101,8 @@ def runStudy(n, p, spectral):
     w = np.sqrt(w + 0j)
     # w = np.sort(w)
 
+    #print(np.sort(w))
+
     dof = system.nDof()
 
     idx = eigenvalue
@@ -109,16 +113,43 @@ def runStudy(n, p, spectral):
         wNum = w[eigenvalue]
     else:
         print("Error! Choose eigenvaluesSearch 'nearest' or 'number'")
+    wIndex = idx
 
     if np.imag(wNum) > 0:
         print("Warning! Chosen eigenvalue has imaginary part.")
 
     iMatrix = ansatz.interpolationMatrix(nodesEval)
-    eVector = iMatrix * v[:, idx]
+
+    if True:
+        minIndex = 0
+        minError = 1e10
+        for idx in range(nEigen):
+            if np.linalg.norm(np.imag(v[:, idx])) == 0:
+                eVector = iMatrix * system.getFullVector(np.real(v[:, idx]))
+                eVector = eVector / eVector[0]
+                eVector *= np.linalg.norm(vExact) / np.linalg.norm(eVector)
+                error = np.linalg.norm(eVector - vExact) / np.linalg.norm(vExact)
+                if error < minError:
+                    minError = error
+                    minIndex = idx
+
+        print("wIndex=%d, vIndex=%d, minError=%e" % (wIndex, minIndex, minError))
+        idx = minIndex
+
+        eVector = iMatrix * system.getFullVector(np.real(v[:, idx]))
     eVector = eVector / eVector[0]
-    # plot(nodesEval, eVector)
+    eVector *= np.linalg.norm(vExact) / np.linalg.norm(eVector)
+
+    #plot(nodesEval, [eVector, vExact])
 
     return dof, np.real(wNum), eVector
+
+
+title = ansatzType
+title += ' ' + mass
+title += ' d=' + str(extra)
+title += ' ' + eigenvalueSearch
+fileBaseName = getFileBaseNameAndCreateDir("results/example_eigenvector_convergence_matched_1e-8/", title.replace(' ', '_'))
 
 
 def plotVectorsAndValues():
@@ -136,19 +167,25 @@ def plotVectorsAndValues():
         ax[1].set_ylim(1e-11, 0.1)
 
     for p in [1, 2, 3, 4]:
+
+        k = eval(continuity)
+        k = max(0, min(k, p - 1))
+        nhh = int(nh / (p - k))  # immersed
+
         print("p = %d" % p)
-        minws = [0] * nh
-        valErrors = [0] * nh
-        vecErrors = [0] * nh
-        dofs = [0] * nh
+        minws = [0] * nhh
+        valErrors = [0] * nhh
+        vecErrors = [0] * nhh
+        dofs = [0] * nhh
 
         continuity = 'p-1'
         if ansatzType == 'Lagrange':
             continuity = '0'
         k = eval(continuity)
 
-        for i in range(nh):
-            n = int((24 / (p - k)) * 1.5 ** i)
+        for i in range(nhh):
+            n = int(12 / (p - k)) + i  # immersed
+            # n = int(12/(p-k) * 1.5 ** (i))  # boundary fitted
             print("n = %d" % n)
             dofs[i], minws[i], eVector = runStudy(n, p, False)
             valErrors[i] = np.abs(minws[i] - wExact) / wExact
@@ -156,16 +193,18 @@ def plotVectorsAndValues():
             print("dof = %e, w = %e, eVec = %e, eVal = %e" % (dofs[i], minws[i], vecErrors[i], valErrors[i]))
         ax[0].loglog(dofs, valErrors, '-o', label='p=' + str(p), color=colors[p - 1])
         ax[1].loglog(dofs, vecErrors, '-o', label='p=' + str(p), color=colors[p - 1])
-        if ansatzType == 'Lagrange':
-            for i in range(nh):
-                n = int((24 / (p - k)) * 1.5 ** i)
-                print("n = %d" % n)
-                dofs[i], minws[i], eVector = runStudy(n, p, True)
-                valErrors[i] = np.abs(minws[i] - wExact) / wExact
-                vecErrors[i] = np.linalg.norm(eVector - vExact) / np.linalg.norm(vExact)
-                print("dof = %e, w = %e, eVec = %e, eVal = %e" % (dofs[i], minws[i], vecErrors[i], valErrors[i]))
-            ax[0].loglog(dofs, valErrors, '--x', label='p=' + str(p) + ' spectral', color=colors[p - 1])
-            ax[1].loglog(dofs, vecErrors, '--x', label='p=' + str(p) + ' spectral', color=colors[p - 1])
+
+        if False:
+            if ansatzType == 'Lagrange':
+                for i in range(nh):
+                    n = int((24 / (p - k)) * 1.5 ** i)
+                    print("n = %d" % n)
+                    dofs[i], minws[i], eVector = runStudy(n, p, True)
+                    valErrors[i] = np.abs(minws[i] - wExact) / wExact
+                    vecErrors[i] = np.linalg.norm(eVector - vExact) / np.linalg.norm(vExact)
+                    print("dof = %e, w = %e, eVec = %e, eVal = %e" % (dofs[i], minws[i], vecErrors[i], valErrors[i]))
+                ax[0].loglog(dofs, valErrors, '--x', label='p=' + str(p) + ' spectral', color=colors[p - 1])
+                ax[1].loglog(dofs, vecErrors, '--x', label='p=' + str(p) + ' spectral', color=colors[p - 1])
         if False:
             if ansatzType == 'Spline':
                 continuity = '0'
@@ -210,39 +249,47 @@ def plotVectors():
     colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
     if extra != 0:
-        ax.set_ylim(1e-8, 0.1)
+        ax.set_ylim(1e-8, 10)
     else:
-        ax.set_ylim(1e-11, 0.1)
+        ax.set_ylim(1e-11, 10)
 
     for p in [1, 2, 3, 4]:
-        print("p = %d" % p)
-        minws = [0] * nh
-        valErrors = [0] * nh
-        vecErrors = [0] * nh
-        dofs = [0] * nh
-
         continuity = 'p-1'
         if ansatzType == 'Lagrange':
             continuity = '0'
         k = eval(continuity)
 
-        for i in range(nh):
-            n = int((24 / (p - k)) * 1.5 ** i)
+        k = eval(continuity)
+        k = max(0, min(k, p - 1))
+        nhh = int(nh / (p - k))  # immersed
+
+        print("p = %d" % p)
+        minws = [0] * nhh
+        valErrors = [0] * nhh
+        vecErrors = [0] * nhh
+        dofs = [0] * nhh
+
+        for i in range(nhh):
+            n = int(12 / (p - k)) + i  # immersed
+            # n = int(12/(p-k) * 1.5 ** (i))  # boundary fitted
             print("n = %d" % n)
             dofs[i], minws[i], eVector = runStudy(n, p, False)
             valErrors[i] = np.abs(minws[i] - wExact) / wExact
             vecErrors[i] = np.linalg.norm(eVector - vExact) / np.linalg.norm(vExact)
             print("dof = %e, w = %e, eVec = %e, eVal = %e" % (dofs[i], minws[i], vecErrors[i], valErrors[i]))
         ax.loglog(dofs, vecErrors, '-o', label='p=' + str(p), color=colors[p - 1])
-        if ansatzType == 'Lagrange':
-            for i in range(nh):
-                n = int((24 / (p - k)) * 1.5 ** i)
-                print("n = %d" % n)
-                dofs[i], minws[i], eVector = runStudy(n, p, True)
-                valErrors[i] = np.abs(minws[i] - wExact) / wExact
-                vecErrors[i] = np.linalg.norm(eVector - vExact) / np.linalg.norm(vExact)
-                print("dof = %e, w = %e, eVec = %e, eVal = %e" % (dofs[i], minws[i], vecErrors[i], valErrors[i]))
-            ax.loglog(dofs, vecErrors, '--x', label='p=' + str(p) + ' spectral', color=colors[p - 1])
+        writeColumnFile(fileBaseName + '_p=' + str(p) + '.dat', (dofs, vecErrors))
+
+        if False:
+            if ansatzType == 'Lagrange':
+                for i in range(nh):
+                    n = int((24 / (p - k)) * 1.5 ** i)
+                    print("n = %d" % n)
+                    dofs[i], minws[i], eVector = runStudy(n, p, True)
+                    valErrors[i] = np.abs(minws[i] - wExact) / wExact
+                    vecErrors[i] = np.linalg.norm(eVector - vExact) / np.linalg.norm(vExact)
+                    print("dof = %e, w = %e, eVec = %e, eVal = %e" % (dofs[i], minws[i], vecErrors[i], valErrors[i]))
+                ax.loglog(dofs, vecErrors, '--x', label='p=' + str(p) + ' spectral', color=colors[p - 1])
         if False:
             if ansatzType == 'Spline':
                 continuity = '0'
@@ -258,16 +305,9 @@ def plotVectors():
 
     ax.legend()
 
-    title = ansatzType
-    title += ' ' + mass
-    title += ' d=' + str(extra)
-    title += ' ' + eigenvalueSearch
-
     ax.set_title(title)
     ax.set_xlabel('degrees of freedom')
     ax.set_ylabel('relative error in sixth eigenvector ')
-
-    fileBaseName = getFileBaseNameAndCreateDir("results/example_eigenvector_convergence/", title.replace(' ', '_'))
 
     plt.savefig(fileBaseName + '.pdf')
 

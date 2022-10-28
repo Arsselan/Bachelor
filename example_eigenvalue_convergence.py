@@ -12,16 +12,17 @@ from sandbox.gllTemp import *
 # problem
 left = 0
 right = 1.2
-extra = 0.0
+extra = 0.2
 eigenvalue = 6
 
 # analysis
-nh = 8
+# nh = 8  # boundary fitted
+nh = 240  # immersed
 
 # method
-#ansatzType = 'Lagrange'
+ansatzType = 'Lagrange'
 #ansatzType = 'Spline'
-ansatzType = 'InterpolatorySpline'
+#ansatzType = 'InterpolatorySpline'
 continuity = 'p-1'
 
 
@@ -31,9 +32,12 @@ if ansatzType == 'Lagrange':
 axLimitLowY = 1e-13
 axLimitHighY = 1e-0
 
-mass = 'CON'
+#mass = 'CON'
 #mass = 'HRZ'
-#mass = 'RS'
+mass = 'RS'
+dual = False
+
+
 depth = 40
 eigenvalueSearch = 'nearest'
 #eigenvalueSearch = 'number'
@@ -44,7 +48,7 @@ wExact = (eigenvalue * np.pi) / (1.2 - 2 * extra)
 def alpha(x):
     if left + extra <= x <= right - extra:
         return 1.0
-    return 0
+    return 1e-16
 
 
 domain = Domain(alpha)
@@ -59,7 +63,6 @@ def runStudy(n, p, spectral):
 
     # gaussPointsM = gll.computeGllPoints(p + 1)
     gaussPointsM = GLL(p + 1)
-
     quadratureM = SpaceTreeQuadrature(grid, gaussPointsM, domain, depth)
 
     gaussPointsK = np.polynomial.legendre.leggauss(p + 1)
@@ -69,7 +72,10 @@ def runStudy(n, p, spectral):
     if spectral:
         system = TripletSystem.fromTwoQuadratures(ansatz, quadratureM, quadratureK)
     else:
-        system = TripletSystem.fromOneQuadrature(ansatz, quadratureK)
+        if dual:
+            system = TripletSystem.fromOneQuadratureWithDualBasis(ansatz, quadratureK)
+        else:
+            system = TripletSystem.fromOneQuadrature(ansatz, quadratureK)
 
     system.findZeroDof()
     if len(system.zeroDof) > 0:
@@ -77,10 +83,16 @@ def runStudy(n, p, spectral):
 
     # solve sparse
     M, K, MHRZ, MRS = system.createSparseMatrices(returnHRZ=True, returnRS=True)
+    #print("asym: %e" % np.linalg.norm(K.toarray()-K.toarray().T))
 
     if mass == 'CON':
-        # w = scipy.sparse.linalg.eigs(K, K.shape[0] - 2, M, which='SM', return_eigenvectors=False)
+        #w = scipy.sparse.linalg.eigs(K, K.shape[0] - 2, M, which='SM', return_eigenvectors=False)
         w = scipy.linalg.eigvals(K.toarray(), M.toarray())
+        #w1 = scipy.linalg.eigvals(K.toarray(), M.toarray())
+        #w2 = scipy.linalg.eigvals(K.T.toarray(), M.toarray())
+        #print("diff: %e" % np.linalg.norm(np.sort(w1)-np.sort(w2)))
+        #print(np.sort(w1)-np.sort(w2))
+        #w = w2
     elif mass == 'HRZ':
         # w = scipy.sparse.linalg.eigs(K, K.shape[0] - 2, MHRZ, which='SM', return_eigenvectors=False)
         w = scipy.linalg.eigvals(K.toarray(), MHRZ.toarray())
@@ -95,6 +107,7 @@ def runStudy(n, p, spectral):
     w = np.abs(w)
     w = np.sqrt(w + 0j)
     w = np.sort(w)
+    #print(w[1:10]/wExact)
 
     dof = system.nDof()
 
@@ -117,52 +130,45 @@ colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
 ax.set_ylim(axLimitLowY, axLimitHighY)
 
-res = np.ndarray((nh, 8))
-
-for p in [1, 2, 3, 4]:
-    print("p = %d" % p)
-    minws = [0] * nh
-    errors = [0] * nh
-    dofs = [0] * nh
-
-    k = eval(continuity)
-    k = max(0, min(k, p - 1))
-    #k = p - 1
-
-    for i in range(nh):
-        n = int((12 / (p - k)) * 1.5 ** i)
-        #n = int(12 * 1.5 ** (i))
-        print("n = %d" % n)
-        dofs[i], minws[i] = runStudy(n, p, False)
-        errors[i] = np.abs(minws[i] - wExact) / wExact
-        print("dof = %e, w = %e, e = %e" % (dofs[i], minws[i], errors[i]))
-    res[:, (p - 1) * 2] = dofs
-    res[:, (p - 1) * 2 + 1] = errors
-
-    ax.loglog(dofs, errors, '-o', label='p=' + str(p), color=colors[p - 1])
-    if ansatzType == 'Lagrange':
-        for i in range(nh):
-            n = int((12 / (p - k)) * 1.5 ** i)
-            #n = int(12 * 1.5 ** (i))
-            print("n = %d" % n)
-            dofs[i], minws[i] = runStudy(n, p, True)
-            errors[i] = np.abs(minws[i] - wExact) / wExact
-            print("dof = %e, w = %e, e = %e" % (dofs[i], minws[i], errors[i]))
-        ax.loglog(dofs, errors, '--x', label='p=' + str(p) + ' spectral', color=colors[p - 1])
-
-ax.legend()
-
 title = ansatzType + ' C' + str(continuity)
 title += ' ' + mass
 title += ' d=' + str(extra)
 title += ' ' + eigenvalueSearch
+fileBaseName = getFileBaseNameAndCreateDir("results/example_eigenvalue_convergence_stabilized_1e-8/", title.replace(' ', '_'))
+
+for p in [1, 2, 3, 4]:
+
+    k = eval(continuity)
+    k = max(0, min(k, p - 1))
+
+    #nhh = nh  # boundary fitted
+    nhh = int(nh/(p-k))  # immersed
+
+    print("p = %d" % p)
+    minws = [0] * nhh
+    errors = [0] * nhh
+    dofs = [0] * nhh
+
+    for i in range(nhh):
+        # n = int((12 / (p - k)) * 2 ** (0.2*i))
+        n = int(12/(p-k))+i  # immersed
+        #n = int(12/(p-k) * 1.5 ** (i))  # boundary fitted
+        print("n = %d" % n)
+        dofs[i], minws[i] = runStudy(n, p, False)
+        errors[i] = np.abs(minws[i] - wExact) / wExact
+        print("dof = %e, w = %e, e = %e" % (dofs[i], minws[i], errors[i]))
+
+    ax.loglog(dofs, errors, '-o', label='p=' + str(p), color=colors[p - 1])
+    writeColumnFile(fileBaseName + '_p=' + str(p) + '.dat', (dofs, errors))
+
+ax.legend()
 plt.title(title)
 
 plt.xlabel('degrees of freedom')
 plt.ylabel('relative error in sixth eigenvalue ')
 
-fileBaseName = getFileBaseNameAndCreateDir("results/example_eigenvalue_convergence/", title.replace(' ', '_'))
-np.savetxt(fileBaseName + '.dat', res)
+fileBaseName = getFileBaseNameAndCreateDir("results/example_eigenvalue_convergence_stabilized_1e-8/", title.replace(' ', '_'))
+#np.savetxt(fileBaseName + '.dat', res)
 
 plt.savefig(fileBaseName + '.pdf')
 plt.show()

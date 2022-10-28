@@ -27,3 +27,12 @@ def getFileBaseNameAndCreateDir(path, baseName):
         os.makedirs(path)
     return path + baseName
 
+
+def writeColumnFile(path, columns):
+    nCols = len(columns)
+    nRows = len(columns[0])
+    data = np.ndarray((nRows, nCols))
+    for i in range(nCols):
+        data[:, i] = columns[i]
+    np.savetxt(path, data)
+

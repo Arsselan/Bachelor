@@ -89,7 +89,7 @@ for i in range(len(t) - 2 * p - 1):
         ax21.plot(xx, dy[:, j], '-', color=colors[(i + j) % len(colors)])
         ax2.plot(xx, tyy[:, j], '-', color=colors[(i + j) % len(colors)])
         ax22.plot(xx, tdy[:, j], '-', color=colors[(i + j) % len(colors)])
-    for j in range(3):
+    for j in range(p+1):
         ax3.semilogy(xx, np.abs(tyy[:, j] * tyy[:, j])+1e-15, '-', color=colors[j % len(colors)])
         ax23.semilogy(xx, np.abs(tdy[:, j] * tdy[:, j])+1e-15, '-', color=colors[j % len(colors)])
 

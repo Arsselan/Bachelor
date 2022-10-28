@@ -13,13 +13,14 @@ right = 1.2
 
 # method
 #ansatzType = 'Lagrange'
-ansatzType = 'InterpolatorySpline'
-#ansatzType = 'Spline'
+#ansatzType = 'InterpolatorySpline'
+ansatzType = 'Spline'
 continuity = 'p-1'
-mass = 'HRZ'
+mass = 'CON'
 depth = 40
 spectral = False
-stabilize = 1e-8*0
+dual = True
+stabilize = 1e-8
 
 # analysis
 n = 12
@@ -34,62 +35,75 @@ if ansatzType == 'Spline':
         axLimitY = 50
 
 
-def runStudy(p, extra):
-    # create grid and domain
-    grid = UniformGrid(left, right, n)
+class EigenvalueStudy:
 
-    def alpha(x):
-        if left + extra <= x <= right - extra:
-            return 1
-        return stabilize
+    def __init__(self, p, extra):
 
-    domain = Domain(alpha)
+        # create grid and domain
+        grid = UniformGrid(left, right, n)
 
-    # create ansatz and quadrature points
-    ansatz = createAnsatz(ansatzType, continuity, p, grid)
+        def alpha(x):
+            if left + extra <= x <= right - extra:
+                return 1
+            return stabilize
 
-    # gaussPointsM = gll.computeGllPoints(p + 1)
-    gaussPointsM = GLL(p + 1)
-    quadratureM = SpaceTreeQuadrature(grid, gaussPointsM, domain, depth)
+        domain = Domain(alpha)
 
-    gaussPointsK = np.polynomial.legendre.leggauss(p + 1)
-    quadratureK = SpaceTreeQuadrature(grid, gaussPointsK, domain, depth)
+        # create ansatz and quadrature points
+        ansatz = createAnsatz(ansatzType, continuity, p, grid)
 
-    # create system
-    if spectral:
-        system = TripletSystem.fromTwoQuadratures(ansatz, quadratureM, quadratureK)
-    else:
-        system = TripletSystem.fromOneQuadrature(ansatz, quadratureK)
+        # gaussPointsM = gll.computeGllPoints(p + 1)
+        gaussPointsM = GLL(p + 1)
+        quadratureM = SpaceTreeQuadrature(grid, gaussPointsM, domain, depth)
 
-    #    system.findZeroDof(-1e60, [0, 1, system.nDof()-2, system.nDof()-1])
-    system.findZeroDof(0)
-    if len(system.zeroDof) > 0:
-        print("Warning! There were %d zero dof found: " % len(system.zeroDof) + str(system.zeroDof))
+        gaussPointsK = np.polynomial.legendre.leggauss(p + 1)
+        quadratureK = SpaceTreeQuadrature(grid, gaussPointsK, domain, depth)
 
-    # solve sparse
-    # M, K = system.createSparseMatrices()
-    # w = scipy.sparse.linalg.eigs(K, K.shape[0]-2, M.toarray(), which='LM', return_eigenvectors=False)
+        # create system
+        if spectral:
+            system = TripletSystem.fromTwoQuadratures(ansatz, quadratureM, quadratureK)
+        else:
+            if dual:
+                print("DUAL! %e" % extra)
+                system = TripletSystem.fromOneQuadratureWithDualBasis(ansatz, quadratureK)
+            else:
+                system = TripletSystem.fromOneQuadrature(ansatz, quadratureK)
 
-    # solve dense
-    # M, K = system.createSparseMatrices()
-    M, K, MHRZ, MRS = system.createSparseMatrices(returnHRZ=True, returnRS=True)
+        #    system.findZeroDof(-1e60, [0, 1, system.nDof()-2, system.nDof()-1])
+        system.findZeroDof(0)
+        if len(system.zeroDof) > 0:
+            print("Warning! There were %d zero dof found: " % len(system.zeroDof) + str(system.zeroDof))
 
-    if mass == 'CON':
-        # w = scipy.sparse.linalg.eigs(K, K.shape[0] - 2, M, which='SM', return_eigenvectors=False)
-        w = scipy.linalg.eigvals(K.toarray(), M.toarray())
-    elif mass == 'HRZ':
-        # w = scipy.sparse.linalg.eigs(K, K.shape[0] - 2, MHRZ, which='SM', return_eigenvectors=False)
-        w = scipy.linalg.eigvals(K.toarray(), MHRZ.toarray())
-    elif mass == 'RS':
-        # w = scipy.sparse.linalg.eigs(K, K.shape[0] - 2, MRS, which='SM', return_eigenvectors=False)
-        w = scipy.linalg.eigvals(K.toarray(), MRS.toarray())
-    else:
-        print("Error! Choose mass 'CON' or 'HRZ' or 'RS'")
+        # get matrices
+        self.M, self.K, self.MHRZ, self.MRS = system.createSparseMatrices(returnHRZ=True, returnRS=True)
 
-    w = np.sqrt(np.abs(w))
-    w = np.sort(w)
+        self.grid = grid
+        self.domain = domain
+        self.quadratureM = quadratureM
+        self.quadratureK = quadratureK
+        self.extra = extra
+        self.p = p
+        self.mass = mass
 
-    return max(w)
+    def run(self):
+        if self.mass == 'CON':
+            # w = scipy.sparse.linalg.eigs(K, K.shape[0] - 2, M, which='SM', return_eigenvectors=False)
+            w = scipy.linalg.eigvals(self.K.toarray(), self.M.toarray())
+        elif self.mass == 'HRZ':
+            # w = scipy.sparse.linalg.eigs(K, K.shape[0] - 2, MHRZ, which='SM', return_eigenvectors=False)
+            w = scipy.linalg.eigvals(self.K.toarray(), self.MHRZ.toarray())
+        elif self.mass == 'RS':
+            # w = scipy.sparse.linalg.eigs(K, K.shape[0] - 2, MRS, which='SM', return_eigenvectors=False)
+            w = scipy.linalg.eigvals(self.K.toarray(), self.MRS.toarray())
+        else:
+            print("Error! Choose mass 'CON' or 'HRZ' or 'RS'")
+
+        w = np.sqrt(np.abs(w))
+        w = np.sort(w)
+
+        self.w = w
+
+        return max(w)
 
 
 # extra values
@@ -100,7 +114,7 @@ ne = len(extras)
 
 # prepare figure
 figure, ax = plt.subplots()
-ax.set_ylim(5, axLimitY)
+#ax.set_ylim(5, axLimitY)
 
 # prepare result data
 maxP = 4
@@ -110,7 +124,8 @@ res[:, 0] = extras
 for p in range(1, maxP+1):
     maxw = [0] * ne
     for i in range(ne):
-        maxw[i] = runStudy(p, extras[i])
+        study = EigenvalueStudy(p, extras[i])
+        maxw[i] = study.run()
         print("e = %e, wmax = %e" % (extras[i], maxw[i]))
     ax.plot(extras, maxw, '-o', label='p=' + str(p))
     res[:, p] = maxw

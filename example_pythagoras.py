@@ -11,23 +11,25 @@ from waves1d import *
 problemType = 'N'
 left = 0
 right = 1.2
-extra = 0.219*0
+extra = 0.0
 
 # method
 p = 3
-#ansatzType = 'Spline'
-ansatzType = 'InterpolatorySpline'
+ansatzType = 'Spline'
+#ansatzType = 'InterpolatorySpline'
 #ansatzType = 'Lagrange'
 
 continuity = 'p-1'
 spectral = False
+dual = False
 
 selective = False
-mass = 'RS'
 #mass = 'CON'
+mass = 'RS'
+#mass = 'HRZ'
 
-eigenvalueSearch = 'nearest'
-#eigenvalueSearch = 'number'
+#eigenvalueSearch = 'nearest'
+eigenvalueSearch = 'number'
 
 depth = 40
 
@@ -69,7 +71,10 @@ quadratureK = SpaceTreeQuadrature(grid, gaussPointsK, domain, depth)
 if spectral:
     system = TripletSystem.fromTwoQuadratures(ansatz, quadratureM, quadratureK)
 else:
-    system = TripletSystem.fromOneQuadrature(ansatz, quadratureK, selectiveLumping=selective)
+    if dual:
+        system = TripletSystem.fromOneQuadratureWithDualBasis(ansatz, quadratureK, selectiveLumping=selective)
+    else:
+        system = TripletSystem.fromOneQuadrature(ansatz, quadratureK, selectiveLumping=selective)
 
 if problemType == 'N':
     system.findZeroDof(0)
@@ -78,7 +83,7 @@ elif problemType == 'D':
 elif problemType == 'DN':
     system.findZeroDof(0, [0])
 else:
-    print("Error! Choose problem type 'N', 'D', o r'DN'.")
+    print("Error! Choose problem type 'N', 'D', or 'DN'.")
 
 if len(system.zeroDof) > 0:
     print("Warning! There were %d zero dof found: " % len(system.zeroDof) + str(system.zeroDof))
@@ -104,7 +109,7 @@ if np.linalg.norm(np.imag(w)) > 0:
 
 # exact solution
 nExact = system.nDof()-1 - len(system.zeroDof)
-nEval = 5000
+nEval = 5001
 
 indices = np.linspace(0, nExact, nExact + 1)
 
@@ -129,7 +134,7 @@ vExact = np.ndarray((nEval, nExact + 1))
 gvExact = np.ndarray((nEval, nExact + 1))
 for i in range(nExact + 1):
     vExact[:, i] = getExactV(nodesEval, i)
-    vNorm = np.linalg.norm(vExact[:, i])
+    vNorm = np.linalg.norm(vExact[:, i]) / np.sqrt(nEval)
     if vNorm > 0:
         vExact[:, i] = vExact[:, i] / vNorm
     gvExact[:, i] = getExactGV(nodesEval, i)
@@ -181,7 +186,7 @@ for i in range(len(w)):
     gvEval[:, i] = giMatrix * system.getFullVector(vSorted[:, i])
 
     # normalize
-    vNorm = np.linalg.norm(vEval[:, i])
+    vNorm = np.linalg.norm(vEval[:, i]) / np.sqrt(nEval)
     if vNorm > 0:
         vEval[:, i] = vEval[:, i] / vNorm
         gvEval[:, i] = gvEval[:, i] / vNorm
@@ -241,8 +246,10 @@ figure.suptitle(title)
 ax1.set_xlabel('index')
 ax1.set_ylabel('eigenvalue')
 
-fileBaseName = getFileBaseNameAndCreateDir("results/example_pythagoras_all/", title.replace(' ', '_'))
-#np.savetxt(fileBaseName + '.dat', res)
+fileBaseName = getFileBaseNameAndCreateDir("results/example_pythagoras/", title.replace(' ', '_'))
+
+writeColumnFile(fileBaseName + '_frequencies_p=' + str(p) + '.dat', (indices, np.sqrt(wExact), np.sqrt(wSorted), np.sqrt(wNearest)))
+writeColumnFile(fileBaseName + '_pythagoras_p=' + str(p) + '.dat', (indices[1:], wErrors[1:], vErrors[1:], eErrors[1:], wErrors[1:] + vErrors[1:], np.abs(wErrors[1:]) + vErrors[1:]))
 
 plt.savefig(fileBaseName + '.pdf')
 plt.show()
@@ -259,14 +266,15 @@ for j in range(1):
 
     for i in range(3):
         index = system.nDof() - len(system.zeroDof) - 3 + i
-        #index = 60 + i
+        index = 50 + i
 
         ax[i].plot(nodesEval, vEval[:, index], '-', label='numeric')
-        ax[i].plot(nodesEval, vExact[:, index], '--', label='reference')
+        ax[i].plot(nodesEval, vExact[:, index], '-', label='reference')
 
         ax[i].set_xlabel('x')
         ax[i].set_ylabel('eigenvector')
         ax[i].set_title('eigenvector ' + str(index+1) + ' / ' + str(system.nDof() - len(system.zeroDof)))
+        writeColumnFile(fileBaseName + '_vector' + str(index+1) + '_p=' + str(p) + '.dat', (nodesEval, vEval[:, index], vExact[:, index]))
 
     plt.savefig(fileBaseName + '_high_vectors.pdf')
 
