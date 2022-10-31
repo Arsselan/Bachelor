@@ -20,10 +20,11 @@ right = 1.2
 #ansatzType = 'Lagrange'
 spectral = False
 
-ansatzType = 'InterpolatorySpline'
+#ansatzType = 'InterpolatorySpline'
+ansatzType = 'Spline'
 continuity = 'p-1'
 
-mass = 'CON'
+mass = 'RS'
 
 depth = 40
 p = 2

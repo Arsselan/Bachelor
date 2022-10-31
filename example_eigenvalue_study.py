@@ -7,103 +7,31 @@ import scipy.sparse.linalg
 
 from waves1d import *
 
-# problem
-left = 0
-right = 1.2
+from fem1d.studies import *
 
-# method
-#ansatzType = 'Lagrange'
-#ansatzType = 'InterpolatorySpline'
-ansatzType = 'Spline'
-continuity = 'p-1'
-mass = 'CON'
-depth = 40
-spectral = False
-dual = True
-stabilize = 1e-8
+config = StudyConfig(
+    # problem
+    left=0,
+    right=1.2,
+    extra=0.0,
 
-# analysis
-n = 12
+    # method
+    # ansatzType = 'Lagrange'
+    # ansatzType = 'InterpolatorySpline'
+    n=12,
+    p=3,
+    ansatzType='Spline',
+    continuity='p-1',
+    mass='RS',
+
+    depth=40,
+    spectral=False,
+    dual=False,
+    stabilize=0.0,
+  )
+
 axLimitY = 500
-
-if ansatzType == 'Lagrange':
-    continuity = '0'
-
-if ansatzType == 'Spline':
-    spectral = False
-    if mass != 'CON' and continuity == 'p-1':
-        axLimitY = 50
-
-
-class EigenvalueStudy:
-
-    def __init__(self, p, extra):
-
-        # create grid and domain
-        grid = UniformGrid(left, right, n)
-
-        def alpha(x):
-            if left + extra <= x <= right - extra:
-                return 1
-            return stabilize
-
-        domain = Domain(alpha)
-
-        # create ansatz and quadrature points
-        ansatz = createAnsatz(ansatzType, continuity, p, grid)
-
-        # gaussPointsM = gll.computeGllPoints(p + 1)
-        gaussPointsM = GLL(p + 1)
-        quadratureM = SpaceTreeQuadrature(grid, gaussPointsM, domain, depth)
-
-        gaussPointsK = np.polynomial.legendre.leggauss(p + 1)
-        quadratureK = SpaceTreeQuadrature(grid, gaussPointsK, domain, depth)
-
-        # create system
-        if spectral:
-            system = TripletSystem.fromTwoQuadratures(ansatz, quadratureM, quadratureK)
-        else:
-            if dual:
-                print("DUAL! %e" % extra)
-                system = TripletSystem.fromOneQuadratureWithDualBasis(ansatz, quadratureK)
-            else:
-                system = TripletSystem.fromOneQuadrature(ansatz, quadratureK)
-
-        #    system.findZeroDof(-1e60, [0, 1, system.nDof()-2, system.nDof()-1])
-        system.findZeroDof(0)
-        if len(system.zeroDof) > 0:
-            print("Warning! There were %d zero dof found: " % len(system.zeroDof) + str(system.zeroDof))
-
-        # get matrices
-        self.M, self.K, self.MHRZ, self.MRS = system.createSparseMatrices(returnHRZ=True, returnRS=True)
-
-        self.grid = grid
-        self.domain = domain
-        self.quadratureM = quadratureM
-        self.quadratureK = quadratureK
-        self.extra = extra
-        self.p = p
-        self.mass = mass
-
-    def run(self):
-        if self.mass == 'CON':
-            # w = scipy.sparse.linalg.eigs(K, K.shape[0] - 2, M, which='SM', return_eigenvectors=False)
-            w = scipy.linalg.eigvals(self.K.toarray(), self.M.toarray())
-        elif self.mass == 'HRZ':
-            # w = scipy.sparse.linalg.eigs(K, K.shape[0] - 2, MHRZ, which='SM', return_eigenvectors=False)
-            w = scipy.linalg.eigvals(self.K.toarray(), self.MHRZ.toarray())
-        elif self.mass == 'RS':
-            # w = scipy.sparse.linalg.eigs(K, K.shape[0] - 2, MRS, which='SM', return_eigenvectors=False)
-            w = scipy.linalg.eigvals(self.K.toarray(), self.MRS.toarray())
-        else:
-            print("Error! Choose mass 'CON' or 'HRZ' or 'RS'")
-
-        w = np.sqrt(np.abs(w))
-        w = np.sort(w)
-
-        self.w = w
-
-        return max(w)
+# axLimitY = 50
 
 
 # extra values
@@ -112,23 +40,34 @@ extras = list(np.linspace(0, 0.099, ne)) + list(np.linspace(0.1, 0.199, ne)) + l
     0.3] + list(np.linspace(0.3, 0.399, ne)) + [0.4]
 ne = len(extras)
 
-# prepare figure
-figure, ax = plt.subplots()
-#ax.set_ylim(5, axLimitY)
-
 # prepare result data
 maxP = 4
-res = np.zeros((ne, maxP+1))
+res = np.zeros((ne, maxP + 1))
 res[:, 0] = extras
 
-for p in range(1, maxP+1):
+# run studies
+for p in range(1, maxP + 1):
     maxw = [0] * ne
     for i in range(ne):
-        study = EigenvalueStudy(p, extras[i])
-        maxw[i] = study.run()
+        config.extra = extras[i]
+        config.p = p
+        study = EigenvalueStudy(config)
+        maxw[i] = study.runDense()
         print("e = %e, wmax = %e" % (extras[i], maxw[i]))
-    ax.plot(extras, maxw, '-o', label='p=' + str(p))
     res[:, p] = maxw
+
+# save result
+title = config.ansatzType + ' C' + str(config.continuity) + ' ' + config.mass + ' ' + str(config.stabilize)
+fileBaseName = getFileBaseNameAndCreateDir("results/example_eigenvalue_study/", title.replace(' ', '_'))
+np.savetxt(fileBaseName + '.dat', res)
+
+
+# plot
+figure, ax = plt.subplots()
+# ax.set_ylim(5, axLimitY)
+
+for p in range(1, maxP + 1):
+    ax.plot(extras, res[:,p], '-o', label='p=' + str(p))
 
 ax.legend()
 plt.xlabel('ficticious domain size')
@@ -136,12 +75,7 @@ plt.ylabel('largest eigenvalue')
 
 plt.rcParams['axes.titleweight'] = 'bold'
 
-title = ansatzType + ' C' + str(continuity) + ' ' + mass + ' ' + str(stabilize)
 plt.title(title)
-
-
-fileBaseName = getFileBaseNameAndCreateDir("results/example_eigenvalue_study/", title.replace(' ', '_'))
-np.savetxt(fileBaseName + '.dat', res)
 
 plt.savefig(fileBaseName + '.pdf')
 plt.show()

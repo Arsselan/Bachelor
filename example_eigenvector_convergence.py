@@ -18,17 +18,17 @@ eigenvalue = 6
 nh = 450
 
 # method
-ansatzType = 'Lagrange'
-#ansatzType = 'Spline'
+#ansatzType = 'Lagrange'
+ansatzType = 'Spline'
 #ansatzType = 'InterpolatorySpline'
 
 continuity = 'p-1'
 
-mass = 'CON'
+mass = 'RS'
 #mass = 'HRZ'
 #mass = 'RS'
 
-depth = 40
+depth = 30
 
 eigenvalueSearch = 'nearest'
 # eigenvalueSearch = 'number'
@@ -49,7 +49,7 @@ vExact = np.cos(eigenvalue * np.pi / L * (nodesEval - extra))
 def alpha(x):
     if left + extra <= x <= right - extra:
         return 1.0
-    return 1e-8
+    return 1e-16
 
 
 domain = Domain(alpha)
@@ -149,7 +149,7 @@ title = ansatzType
 title += ' ' + mass
 title += ' d=' + str(extra)
 title += ' ' + eigenvalueSearch
-fileBaseName = getFileBaseNameAndCreateDir("results/example_eigenvector_convergence_matched_1e-8/", title.replace(' ', '_'))
+fileBaseName = getFileBaseNameAndCreateDir("results/example_eigenvector_convergence_matched_0.0/", title.replace(' ', '_'))
 
 
 def plotVectorsAndValues():
@@ -253,7 +253,7 @@ def plotVectors():
     else:
         ax.set_ylim(1e-11, 10)
 
-    for p in [1, 2, 3, 4]:
+    for p in [1,2, 3, 4]:
         continuity = 'p-1'
         if ansatzType == 'Lagrange':
             continuity = '0'

@@ -11,8 +11,8 @@ left = 0
 right = 1.2
 
 # method
-#ansatzType = 'Lagrange'
-ansatzType = 'Spline'
+ansatzType = 'Lagrange'
+#ansatzType = 'Spline'
 continuity = 'p-1'
 mass = 'RS'
 depth = 40
@@ -21,7 +21,7 @@ eigenvalueSearch = 'nearest'
 eigenvalue = 3
 
 # analysis
-nBase = 24
+nBase = 96
 axLimitY = 25
 
 if ansatzType == 'Lagrange':
@@ -40,7 +40,7 @@ def runStudy(p, extra):
     def alpha(x):
         if left + extra <= x <= right - extra:
             return 1
-        return 1e-10
+        return 0
 
     domain = Domain(alpha)
 
@@ -103,35 +103,46 @@ def runStudy(p, extra):
     if np.imag(wNum) > 0:
         print("Warning! Chosen eigenvalue has imaginary part.")
 
-    return system.nDof(), np.real(wNum)
+    return system.nDof(), np.real(wNum), np.max(w)
 
 
 n = nBase
-ne = 51
+ne = 101
 extras = list(np.linspace(0, 0.099, ne)) + list(np.linspace(0.1, 0.199, ne)) + list(np.linspace(0.2, 0.299, ne)) + [
     0.3] + list(np.linspace(0.3, 0.399, ne)) + [0.4]
 ne = len(extras)
 
 # extras = list(np.array(extras) * 12 / n)
-extras = list(np.array(extras) * nBase / n)
+extras = list(np.array(extras) * 12 / nBase * 2)
 
 wExact = (eigenvalue * np.pi) / (1.2 - 2 * np.array(extras))
 
-figure, ax = plt.subplots()
-# ax.set_ylim(5, axLimitY)
-
-ax.plot(extras, wExact, '-', label='reference', color='#000000')
-
+allMaxW = []
+allNumW = []
 for p in [1, 2, 3, 4]:
     maxw = [0] * ne
+    numw = [0] * ne
     for i in range(ne):
         k = eval(continuity)
-        n = int(nBase / (p - k))
-        nDof, maxw[i] = runStudy(p, extras[i])
-        print("e = %e, wmax = %e" % (extras[i], maxw[i]))
-    ax.plot(extras, maxw, '-o', label='n=' + str(n) + 'p=' + str(p) + ' dof=' + str(nDof))
+        n = int(nBase/2) # int(nBase / (p - k))
+        nDof, numw[i], maxw[i] = runStudy(p, extras[i])
+        print("e = %e, wnum = %e, wmax = %e" % (extras[i], numw[i], maxw[i]))
+    allMaxW.append(maxw)
+    allNumW.append(numw)
 
-ax.legend()
+
+# plot
+figure, ax = plt.subplots(1, 2)
+# ax.set_ylim(5, axLimitY)
+
+ax[0].plot(extras, wExact, '-', label='reference', color='#000000')
+
+for i in range(len(allNumW)):
+    ax[0].plot(extras, allNumW[i], '-o', label='n=' + str(n) + 'p=' + str(p) + ' dof=' + str(nDof))
+    ax[1].plot(extras, allMaxW[i], '-o', label='n=' + str(n) + 'p=' + str(p) + ' dof=' + str(nDof))
+
+ax[0].legend()
+ax[1].legend()
 
 plt.rcParams['axes.titleweight'] = 'bold'
 
@@ -140,7 +151,7 @@ title += ' ' + mass
 plt.title(title)
 
 plt.xlabel('ficticious domain size')
-plt.ylabel('largest eigenvalue')
+plt.ylabel('eigenvalue ' + str(eigenvalue))
 
 plt.savefig(title.replace(' ', '_') + '.pdf')
 plt.show()
