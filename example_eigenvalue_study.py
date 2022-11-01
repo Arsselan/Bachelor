@@ -20,14 +20,14 @@ config = StudyConfig(
     # ansatzType = 'InterpolatorySpline'
     n=12,
     p=3,
-    ansatzType='Spline',
-    continuity='p-1',
-    mass='RS',
+    ansatzType='Lagrange',
+    continuity='0',
+    mass='CON',
 
     depth=40,
     spectral=False,
     dual=False,
-    stabilize=0.0,
+    stabilize=1e-8,
   )
 
 axLimitY = 500

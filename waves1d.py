@@ -60,7 +60,9 @@ class SpaceTreeQuadrature:
             self.cuts[iElement] = result[2]
 
     def createPointsAndWeights(self, x1, x2, cuts=[], level=0):
-        d = x2 - x1;
+        d = x2 - x1
+        if d < 1e-14:
+            print("Warning! Almost zero cell.")
         if self.domain.alpha(x1) == self.domain.alpha(x2) or level >= self.depth:
             points = [0] * self.nPoints
             weights = [0] * self.nPoints

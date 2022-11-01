@@ -21,17 +21,17 @@ config = StudyConfig(
     p=3,
     ansatzType='Spline',
     continuity='p-1',
-    mass='CON',
+    mass='HRZ',
 
-    depth=40,
-    stabilize=0.0,
+    depth=35,
+    stabilize=1e-8,
     spectral=False,
     dual=False,
   )
 
 # study
 eigenvalue = 6
-nh = 40
+nh = 240
 
 eigenvalueSearch = 'nearest'
 wExact = (eigenvalue * np.pi) / (1.2 - 2 * config.extra)
@@ -39,17 +39,20 @@ wExact = (eigenvalue * np.pi) / (1.2 - 2 * config.extra)
 
 # title
 title = config.ansatzType
+title += ' ' + config.continuity
 title += ' ' + config.mass
 title += ' a=%2.1e' % config.stabilize
 title += ' d=' + str(config.extra)
 title += ' ' + eigenvalueSearch
-fileBaseName = getFileBaseNameAndCreateDir("results/example_eigenvalue_convergence_stabilized_1e-8/", title.replace(' ', '_'))
+
+fileBaseName = getFileBaseNameAndCreateDir("results/example_eigenvalue_convergence/", title.replace(' ', '_'))
 
 # run
-allMinW = []
+allValues = []
 allErrors = []
 allDofs = []
-for p in [1, 2, 3, 4]:
+allPs = [1, 2, 3, 4]
+for p in allPs:
     config.p = p
 
     k = eval(config.continuity)
@@ -57,31 +60,34 @@ for p in [1, 2, 3, 4]:
     #nhh = nh  # boundary fitted
     nStudies = int(nh / (config.p - k))  # immersed
 
-    print("p = %d" % p)
-    minws = [0] * nStudies
+    values = [0] * nStudies
     errors = [0] * nStudies
     dofs = [0] * nStudies
     for i in range(nStudies):
         n = int(12/(p-k))+i  # immersed
         #n = int(12/(p-k) * 1.5 ** (i))  # boundary fitted
-        print("n = %d" % n)
+        print("p = %d, n = %d" % (p, n))
 
         config.n = n
         config.p = p
         study = EigenvalueStudy(config)
-        study.runDense()
+        if config.ansatzType == 'Lagrange' and config.mass == 'RS':
+            study.runDense(sort=True)
+        else:
+            study.runSparse(sort=True)
 
         # dofs[i] = study.M.shape[0]
         dofs[i] = study.system.nDof()
 
-        minws[i] = findEigenvalue(study.w, eigenvalueSearch, eigenvalue, wExact)
-        errors[i] = np.abs(minws[i] - wExact) / wExact
-        print("dof = %e, w = %e, e = %e" % (dofs[i], minws[i], errors[i]))
+        values[i] = findEigenvalue(study.w, eigenvalueSearch, eigenvalue, wExact)
+        errors[i] = np.abs(values[i] - wExact) / wExact
+        print("dof = %e, w = %e, e = %e" % (dofs[i], values[i], errors[i]))
 
     writeColumnFile(fileBaseName + '_p=' + str(p) + '.dat', (dofs, errors))
-    allMinW.append(minws)
+    allValues.append(values)
     allErrors.append(errors)
     allDofs.append(dofs)
+
 
 def postProcess():
     # plot
@@ -94,8 +100,10 @@ def postProcess():
 
     ax.set_ylim(axLimitLowY, axLimitHighY)
 
-    for p in [1, 2, 3, 4]:
-        ax.loglog(allDofs[p-1], allErrors[p-1], '-o', label='p=' + str(p), color=colors[p - 1])
+    iStudy = 0
+    for p in allPs:
+        ax.loglog(allDofs[iStudy], allErrors[iStudy], '-o', label='p=' + str(p), color=colors[p - 1])
+        iStudy += 1
 
     ax.legend()
     plt.title(title)
@@ -103,10 +111,9 @@ def postProcess():
     plt.xlabel('degrees of freedom')
     plt.ylabel('relative error in sixth eigenvalue ')
 
-    fileBaseName = getFileBaseNameAndCreateDir("results/example_eigenvalue_convergence/", title.replace(' ', '_'))
-    #np.savetxt(fileBaseName + '.dat', res)
-
     plt.savefig(fileBaseName + '.pdf')
     plt.show()
 
+
 postProcess()
+

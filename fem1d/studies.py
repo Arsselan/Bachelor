@@ -78,41 +78,74 @@ class EigenvalueStudy:
 
         self.grid = grid
         self.domain = domain
+        self.ansatz = ansatz
         self.quadratureM = quadratureM
         self.quadratureK = quadratureK
         self.system = system
 
-        self.w = np.zeros(self.M.shape[0])
+        self.w = 0
+        self.v = 0
 
-    def runDense(self):
-        if self.config.mass == 'CON':
-            # w = scipy.sparse.linalg.eigs(K, K.shape[0] - 2, M, which='SM', return_eigenvectors=False)
-            self.w = scipy.linalg.eigvals(self.K.toarray(), self.M.toarray())
-        elif self.config.mass == 'HRZ':
-            # w = scipy.sparse.linalg.eigs(K, K.shape[0] - 2, MHRZ, which='SM', return_eigenvectors=False)
-            self.w = scipy.linalg.eigvals(self.K.toarray(), self.MHRZ.toarray())
-        elif self.config.mass == 'RS':
-            # w = scipy.sparse.linalg.eigs(K, K.shape[0] - 2, MRS, which='SM', return_eigenvectors=False)
-            self.w = scipy.linalg.eigvals(self.K.toarray(), self.MRS.toarray())
+    def runDense(self, computeEigenvectors=False, sort=False):
+        if computeEigenvectors:
+            if self.config.mass == 'CON':
+                self.w, self.v = scipy.linalg.eig(self.K.toarray(), self.M.toarray(), right=True)
+            elif self.config.mass == 'HRZ':
+                self.w, self.v = scipy.linalg.eig(self.K.toarray(), self.MHRZ.toarray(), right=True)
+            elif self.config.mass == 'RS':
+                self.w, self.v = scipy.linalg.eig(self.K.toarray(), self.MRS.toarray(), right=True)
+            else:
+                print("Error! Choose mass 'CON' or 'HRZ' or 'RS'")
         else:
-            print("Error! Choose mass 'CON' or 'HRZ' or 'RS'")
+            if self.config.mass == 'CON':
+                self.w = scipy.linalg.eigvals(self.K.toarray(), self.M.toarray())
+            elif self.config.mass == 'HRZ':
+                self.w = scipy.linalg.eigvals(self.K.toarray(), self.MHRZ.toarray())
+            elif self.config.mass == 'RS':
+                self.w = scipy.linalg.eigvals(self.K.toarray(), self.MRS.toarray())
+            else:
+                print("Error! Choose mass 'CON' or 'HRZ' or 'RS'")
 
         self.w = np.sqrt(np.abs(self.w))
-        self.w = np.sort(self.w)
+
+        if sort:
+            idx = self.w.argsort()[::1]
+            self.w = self.w[idx]
+            if computeEigenvectors:
+                self.v = self.v[:, idx]
+
         return max(self.w)
 
-    def runSparse(self):
-        if self.config.mass == 'CON':
-            w = scipy.sparse.linalg.eigs(self.K, self.K.shape[0] - 2, self.M, which='SM', return_eigenvectors=False)
-        elif self.config.mass == 'HRZ':
-            w = scipy.sparse.linalg.eigs(self.K, self.K.shape[0] - 2, self.MHRZ, which='SM', return_eigenvectors=False)
-        elif self.config.mass == 'RS':
-            w = scipy.sparse.linalg.eigs(self.K, self.K.shape[0] - 2, self.MRS, which='SM', return_eigenvectors=False)
+    def runSparse(self, computeEigenvectors=False, sort=False):
+        nEigen = self.K.shape[0] - 2
+
+        if computeEigenvectors:
+            if self.config.mass == 'CON':
+                self.w, self.v = scipy.sparse.linalg.eigs(self.K, nEigen, self.M, which='SM', return_eigenvectors=True)
+            elif self.config.mass == 'HRZ':
+                self.w, self.v = scipy.sparse.linalg.eigs(self.K, nEigen, self.MHRZ, which='SM', return_eigenvectors=True)
+            elif self.config.mass == 'RS':
+                self.w, self.v = scipy.sparse.linalg.eigs(self.K, nEigen, self.MRS, which='SM', return_eigenvectors=True)
+            else:
+                print("Error! Choose mass 'CON' or 'HRZ' or 'RS'")
         else:
-            print("Error! Choose mass 'CON' or 'HRZ' or 'RS'")
+            if self.config.mass == 'CON':
+                self.w = scipy.sparse.linalg.eigs(self.K, self.K.shape[0] - 2, self.M, which='SM', return_eigenvectors=False)
+            elif self.config.mass == 'HRZ':
+                self.w = scipy.sparse.linalg.eigs(self.K, self.K.shape[0] - 2, self.MHRZ, which='SM', return_eigenvectors=False)
+            elif self.config.mass == 'RS':
+                self.w = scipy.sparse.linalg.eigs(self.K, self.K.shape[0] - 2, self.MRS, which='SM', return_eigenvectors=False)
+            else:
+                print("Error! Choose mass 'CON' or 'HRZ' or 'RS'")
 
         self.w = np.sqrt(np.abs(self.w))
-        self.w = np.sort(self.w)
+
+        if sort:
+            idx = self.w.argsort()[::1]
+            self.w = self.w[idx]
+            if computeEigenvectors:
+                self.v = self.v[:, idx]
+
         return max(self.w)
 
 
@@ -120,7 +153,7 @@ def findEigenvalue(w, eigenvalueSearch, eigenvalue, wExact):
     if eigenvalueSearch == 'nearest':
         wNum = find_nearest(w, wExact)
         idx = find_nearest_index(w, wExact)
-        print("index = %d" % idx)
+        print("w index = %d" % idx)
     elif eigenvalueSearch == 'number':
         wNum = w[eigenvalue]
     else:
@@ -130,3 +163,38 @@ def findEigenvalue(w, eigenvalueSearch, eigenvalue, wExact):
         print("Warning! Chosen eigenvalue has imaginary part.")
 
     return wNum
+
+
+def findEigenvector(v, search, index, iMatrix, system, vExact):
+    if search == 'nearest':
+        minIndex = 0
+        minError = 1e10
+        nEigen = v.shape[1]
+        for idx in range(nEigen):
+            # print(idx)
+            if np.linalg.norm(np.imag(v[:, idx])) == 0:
+                eVector = iMatrix * system.getFullVector(np.real(v[:, idx]))
+                eVector = eVector / eVector[0]
+                eVector *= np.linalg.norm(vExact) / np.linalg.norm(eVector)
+                error = np.linalg.norm(eVector - vExact) / np.linalg.norm(vExact)
+                if error < minError:
+                    # plot(nodesEval, [vExact, eVector])
+                    minError = error
+                    minIndex = idx
+            else:
+                print("Warning! Found complex eigenvector %d." % idx)
+
+        print("v index = %d" % minIndex)
+
+    elif search == 'number':
+        minIndex = index
+    else:
+        print("Error! Choose eigenvaluesSearch 'nearest' or 'number'")
+
+    vNum = iMatrix * system.getFullVector(np.real(v[:, minIndex]))
+    vNum = vNum / vNum[0]
+    vNum *= np.linalg.norm(vExact) / np.linalg.norm(vNum)
+
+    return vNum
+
+
