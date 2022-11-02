@@ -11,17 +11,17 @@ left = 0
 right = 1.2
 
 # method
-ansatzType = 'Lagrange'
-#ansatzType = 'Spline'
+#ansatzType = 'Lagrange'
+ansatzType = 'Spline'
 continuity = 'p-1'
-mass = 'RS'
-depth = 40
+mass = 'CON'
+depth = 35
 spectral = False
 eigenvalueSearch = 'nearest'
 eigenvalue = 3
 
 # analysis
-nBase = 96
+nBase = 240
 axLimitY = 25
 
 if ansatzType == 'Lagrange':
@@ -40,7 +40,7 @@ def runStudy(p, extra):
     def alpha(x):
         if left + extra <= x <= right - extra:
             return 1
-        return 0
+        return 1e-8
 
     domain = Domain(alpha)
 
@@ -107,7 +107,7 @@ def runStudy(p, extra):
 
 
 n = nBase
-ne = 101
+ne = 11
 extras = list(np.linspace(0, 0.099, ne)) + list(np.linspace(0.1, 0.199, ne)) + list(np.linspace(0.2, 0.299, ne)) + [
     0.3] + list(np.linspace(0.3, 0.399, ne)) + [0.4]
 ne = len(extras)
@@ -137,9 +137,11 @@ figure, ax = plt.subplots(1, 2)
 
 ax[0].plot(extras, wExact, '-', label='reference', color='#000000')
 
-for i in range(len(allNumW)):
-    ax[0].plot(extras, allNumW[i], '-o', label='n=' + str(n) + 'p=' + str(p) + ' dof=' + str(nDof))
-    ax[1].plot(extras, allMaxW[i], '-o', label='n=' + str(n) + 'p=' + str(p) + ' dof=' + str(nDof))
+iStudy = 0
+for p in [1, 2, 3, 4]:
+    ax[0].plot(extras, allNumW[iStudy], '-o', label='n=' + str(n) + 'p=' + str(p) + ' dof=' + str(nDof))
+    ax[1].plot(extras, allMaxW[iStudy], '-o', label='n=' + str(n) + 'p=' + str(p) + ' dof=' + str(nDof))
+    iStudy += 1
 
 ax[0].legend()
 ax[1].legend()

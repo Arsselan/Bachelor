@@ -33,5 +33,5 @@ if spectral is True:
     title += "_spectral"
 
 title += "_" + mass
-filename = getFileBaseNameAndCreateDir("results/time_domain_study_extra/", title)
+filename = getFileBaseNameAndCreateDir("results/time_domain_study_extra_stabilized_1e-8/", title)
 np.savetxt(filename + ".txt", data)

@@ -91,7 +91,8 @@ class TripletSystem:
         n = grid.nElements
         alpha = quadratureM.domain.alpha
 
-        nVal = (p + 1) * (p + 1)
+        nShapesPerElement = ansatz.nShapesPerElement()
+        nVal = nShapesPerElement * nShapesPerElement
         row = np.zeros(nVal * n, dtype=np.uint)
         col = np.zeros(nVal * n, dtype=np.uint)
         valM = np.zeros(nVal * n)
@@ -103,9 +104,9 @@ class TripletSystem:
         for iElement in range(n):
             lm = ansatz.locationMap(iElement)
             # print("ELEMENT " + str(i) + "lm: " + str(lm))
-            Me = np.zeros((p + 1, p + 1))
-            Ke = np.zeros((p + 1, p + 1))
-            Fe = np.zeros(p + 1)
+            Me = np.zeros((nShapesPerElement, nShapesPerElement))
+            Ke = np.zeros((nShapesPerElement, nShapesPerElement))
+            Fe = np.zeros(nShapesPerElement)
             pointsM = quadratureM.points[iElement]
             weightsM = quadratureM.weights[iElement]
             pointsK = quadratureK.points[iElement]
@@ -128,8 +129,8 @@ class TripletSystem:
                 mass += weightsK[j] * alpha(pointsK[j])
 
             eSlice = slice(nVal * iElement, nVal * (iElement + 1))
-            row[eSlice] = np.broadcast_to(lm, (p + 1, p + 1)).T.ravel()
-            col[eSlice] = np.broadcast_to(lm, (p + 1, p + 1)).ravel()
+            row[eSlice] = np.broadcast_to(lm, (nShapesPerElement, nShapesPerElement)).T.ravel()
+            col[eSlice] = np.broadcast_to(lm, (nShapesPerElement, nShapesPerElement)).ravel()
             valK[eSlice] = Ke.ravel()
             valM[eSlice] = Me.ravel()
             F[lm] += Fe

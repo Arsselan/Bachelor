@@ -17,16 +17,16 @@ right = 1.2
 #extra = 0.005 * 0.8
 
 # method
-#ansatzType = 'Lagrange'
+ansatzType = 'Lagrange'
 spectral = False
 
-#ansatzType = 'InterpolatorySpline'
-ansatzType = 'Spline'
+ansatzType = 'InterpolatorySpline'
+#ansatzType = 'Spline'
 continuity = 'p-1'
 
-mass = 'RS'
+mass = 'HRZ'
 
-depth = 40
+depth = 35
 p = 2
 n = 240
 
@@ -55,7 +55,7 @@ dt = tMax / nt
 def alpha(x):
     if left + extra <= x <= right - extra:
         return 1.0
-    return 1e-10
+    return 1e-8
 
 
 domain = Domain(alpha)

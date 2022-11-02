@@ -148,6 +148,20 @@ class EigenvalueStudy:
 
         return max(self.w)
 
+    def computeLargestEigenvalueSparse(self):
+        if self.config.mass == 'CON':
+            self.w = scipy.sparse.linalg.eigs(self.K, 1, self.M, which='LM', return_eigenvectors=False)
+        elif self.config.mass == 'HRZ':
+            self.w = scipy.sparse.linalg.eigs(self.K, 1, self.MHRZ, which='LM', return_eigenvectors=False)
+        elif self.config.mass == 'RS':
+            self.w = scipy.sparse.linalg.eigs(self.K, 1, self.MRS, which='LM', return_eigenvectors=False)
+        else:
+            print("Error! Choose mass 'CON' or 'HRZ' or 'RS'")
+
+        self.w = np.sqrt(np.abs(self.w))
+
+        return max(self.w)
+
 
 def findEigenvalue(w, eigenvalueSearch, eigenvalue, wExact):
     if eigenvalueSearch == 'nearest':

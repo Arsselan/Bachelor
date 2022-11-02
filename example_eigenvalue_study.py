@@ -20,14 +20,14 @@ config = StudyConfig(
     # ansatzType = 'InterpolatorySpline'
     n=12,
     p=3,
-    ansatzType='Lagrange',
-    continuity='0',
+    ansatzType='Spline',
+    continuity='p-1',
     mass='CON',
 
     depth=40,
     spectral=False,
     dual=False,
-    stabilize=1e-8,
+    stabilize=0,
   )
 
 axLimitY = 500
@@ -35,10 +35,12 @@ axLimitY = 500
 
 
 # extra values
-ne = 11
+ne = 101
 extras = list(np.linspace(0, 0.099, ne)) + list(np.linspace(0.1, 0.199, ne)) + list(np.linspace(0.2, 0.299, ne)) + [
     0.3] + list(np.linspace(0.3, 0.399, ne)) + [0.4]
 ne = len(extras)
+
+extras = list(np.array(extras))
 
 # prepare result data
 maxP = 4
@@ -48,11 +50,15 @@ res[:, 0] = extras
 # run studies
 for p in range(1, maxP + 1):
     maxw = [0] * ne
+    print("p = %d" % p)
     for i in range(ne):
         config.extra = extras[i]
         config.p = p
         study = EigenvalueStudy(config)
-        maxw[i] = study.runDense()
+        #maxw[i] = study.runDense()
+        #maxw[i] = study.runSparse()
+        maxw[i] = study.computeLargestEigenvalueSparse()
+
         print("e = %e, wmax = %e" % (extras[i], maxw[i]))
     res[:, p] = maxw
 
