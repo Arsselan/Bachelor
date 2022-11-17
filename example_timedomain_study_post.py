@@ -11,14 +11,14 @@ names = [
     "Spline_CON",
     "Spline_RS",
     # "Spline_HRZ",
-    # "Lagrange_spectral_CON",
-    # "Lagrange_CON",
+    "Lagrange_CON",
     # "Lagrange_RS",
-    # "Lagrange_spectral_HRZ",
-    # "Lagrange_HRZ",
-    # "InterpolatorySpline_CON",
+    "Lagrange_HRZ",
+    "InterpolatorySpline_CON",
     # "InterpolatorySpline_RS",
-    # "InterpolatorySpline_HRZ"
+    "InterpolatorySpline_HRZ",
+    "Lagrange_spectral_CON",
+    "Lagrange_spectral_HRZ",
 ]
 
 # load data
@@ -42,8 +42,11 @@ figure.tight_layout(pad=2.5)
 # plot
 for iName in range(nNames):
     cData = data[iName]
-    ax[0].semilogy(cData[:, 0], cData[:, 2], '-o', label="wmax " + names[iName])
-    ax[1].semilogy(cData[:, 0], cData[:, 1], '-o', label="err " + names[iName])
+    style = '-o'
+    if iName > 3:
+        style = '--.'
+    ax[0].semilogy(cData[:, 0], cData[:, 2], style, label="wmax " + names[iName])
+    ax[1].semilogy(cData[:, 0], cData[:, 1], style, label="err " + names[iName])
 
 ax[0].set_title('Maximum eigenvalues')
 ax[1].set_title('Time domain error')

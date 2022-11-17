@@ -14,9 +14,9 @@ right = 1.2
 extra = 0.0
 
 # method
-p = 3
-ansatzType = 'Spline'
-#ansatzType = 'InterpolatorySpline'
+p = 2
+#ansatzType = 'Spline'
+ansatzType = 'InterpolatorySpline'
 #ansatzType = 'Lagrange'
 
 continuity = 'p-1'
@@ -255,28 +255,31 @@ plt.savefig(fileBaseName + '.pdf')
 plt.show()
 
 
-plt.rcParams["figure.figsize"] = (12, 3)
+#plt.rcParams["figure.figsize"] = (12, 3)
 
+nRows = 3
+nCols = 4
+figure, ax = plt.subplots(nRows, nCols)
+plt.rcParams['axes.titleweight'] = 'bold'
+colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+figure.tight_layout(pad=1)
 
-for j in range(1):
-    figure, ax = plt.subplots(1, 3)
-    plt.rcParams['axes.titleweight'] = 'bold'
-    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
-    figure.tight_layout(pad=3)
+for j in range(nRows):
 
-    for i in range(3):
+    for i in range(nCols):
         index = system.nDof() - len(system.zeroDof) - 3 + i
-        index = 50 + i
+        index = 42 + i + nCols*j
 
-        ax[i].plot(nodesEval, vEval[:, index], '-', label='numeric')
-        ax[i].plot(nodesEval, vExact[:, index], '-', label='reference')
+        ax[j][i].plot(nodesEval, vEval[:, index], '-', label='numeric')
+        ax[j][i].plot(nodesEval, vExact[:, index], '--', label='reference')
 
-        ax[i].set_xlabel('x')
-        ax[i].set_ylabel('eigenvector')
-        ax[i].set_title('eigenvector ' + str(index+1) + ' / ' + str(system.nDof() - len(system.zeroDof)))
+        ax[j][i].set_xlabel('x')
+        ax[j][i].set_ylabel('eigenvector')
+        ax[j][i].set_title('v ' + str(index+1) + ' / ' + str(system.nDof() - len(system.zeroDof)) + ' e=' + str(vErrors[index]))
+
         writeColumnFile(fileBaseName + '_vector' + str(index+1) + '_p=' + str(p) + '.dat', (nodesEval, vEval[:, index], vExact[:, index]))
 
-    plt.savefig(fileBaseName + '_high_vectors.pdf')
+plt.savefig(fileBaseName + '_high_vectors.pdf')
 
-    plt.show()
+plt.show()
 

@@ -18,9 +18,9 @@ right = 1.2
 
 # method
 ansatzType = 'Lagrange'
-spectral = False
+spectral = True
 
-ansatzType = 'InterpolatorySpline'
+#ansatzType = 'InterpolatorySpline'
 #ansatzType = 'Spline'
 continuity = 'p-1'
 
