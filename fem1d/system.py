@@ -226,9 +226,7 @@ class TripletSystem:
 
             if selectiveLumping is False or len(quadrature.cuts[iElement]) > 0:
                 valMRS[eSlice] = MeRS.ravel()
-                # print("Lump error RS: %e" % np.linalg.norm(MeRS - Me))
                 valMHRZ[eSlice] = MeHRZ.ravel()
-                # print("Lump error HRZ: %e" % np.linalg.norm(MeHRZ - Me))
             else:
                 valMRS[eSlice] = Me.ravel()
                 valMHRZ[eSlice] = Me.ravel()

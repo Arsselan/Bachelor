@@ -15,23 +15,28 @@ config = StudyConfig(
     extra=0.2,
 
     # method
-    # ansatzType = 'Lagrange'
-    # ansatzType = 'InterpolatorySpline'
+    ansatzType='Lagrange',
+    # ansatzType='InterpolatorySpline',
     n=12,
     p=3,
-    ansatzType='Spline',
+    # ansatzType='Spline',
     continuity='p-1',
     mass='HRZ',
 
     depth=35,
-    stabilize=1e-8,
+    stabilize=1e-16,
     spectral=False,
     dual=False,
   )
 
 # study
 eigenvalue = 6
-nh = 240
+
+if config.extra == 0.0:
+    nh = 8  # boundary fitted
+else:
+    nh = 240  # immersed
+
 
 eigenvalueSearch = 'nearest'
 wExact = (eigenvalue * np.pi) / (1.2 - 2 * config.extra)
@@ -57,15 +62,21 @@ for p in allPs:
 
     k = eval(config.continuity)
 
-    #nhh = nh  # boundary fitted
-    nStudies = int(nh / (config.p - k))  # immersed
+    if config.extra == 0.0:
+        nStudies = nh  # boundary fitted
+    else:
+        nStudies = int(nh / (config.p - k))  # immersed
 
     values = [0] * nStudies
     errors = [0] * nStudies
     dofs = [0] * nStudies
     for i in range(nStudies):
-        n = int(12/(p-k))+i  # immersed
-        #n = int(12/(p-k) * 1.5 ** (i))  # boundary fitted
+
+        if config.extra == 0.0:
+            n = int(12/(p-k) * 1.5 ** i)  # boundary fitted
+        else:
+            n = int(12/(p-k))+i  # immersed
+
         print("p = %d, n = %d" % (p, n))
 
         config.n = n

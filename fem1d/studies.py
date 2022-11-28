@@ -3,7 +3,7 @@ from waves1d import *
 
 class StudyConfig:
 
-    def __init__(self, left, right, extra, n, p, ansatzType, continuity, mass, depth, stabilize, spectral, dual):
+    def __init__(self, left, right, extra, n, p, ansatzType, continuity, mass, depth, stabilize, spectral, dual, smartQuadrature):
         self.left = left
         self.right = right
         self.extra = extra
@@ -13,11 +13,12 @@ class StudyConfig:
         self.ansatzType = ansatzType
         self.continuity = continuity
         self.mass = mass
-        self.spectral = spectral
 
-        self.dual = dual
-        self.stabilize = stabilize
         self.depth = depth
+        self.stabilize = stabilize
+        self.spectral = spectral
+        self.dual = dual
+        self.smartQuadrature = smartQuadrature
 
         if ansatzType == 'Lagrange':
             self.continuity = '0'
@@ -51,11 +52,17 @@ class EigenvalueStudy:
         ansatz = createAnsatz(config.ansatzType, config.continuity, config.p, grid)
 
         # gaussPointsM = gll.computeGllPoints(p + 1)
-        gaussPointsM = GLL(config.p + 1)
-        quadratureM = SpaceTreeQuadrature(grid, gaussPointsM, domain, config.depth)
+        gaussPointsM = gll.computeGllPoints(config.p + 1)
+        if config.smartQuadrature is False:
+            quadratureM = SpaceTreeQuadrature(grid, gaussPointsM, domain, config.depth)
+        else:
+            quadratureM = SmartQuadrature(grid, gaussPointsM, domain, [extra, right-extra])
 
         gaussPointsK = np.polynomial.legendre.leggauss(config.p + 1)
-        quadratureK = SpaceTreeQuadrature(grid, gaussPointsK, domain, config.depth)
+        if config.smartQuadrature is False:
+            quadratureK = SpaceTreeQuadrature(grid, gaussPointsK, domain, config.depth)
+        else:
+            quadratureK = SmartQuadrature(grid, gaussPointsK, domain, [extra, right-extra])
 
         # create system
         if config.spectral:

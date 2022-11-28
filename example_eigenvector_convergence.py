@@ -15,30 +15,34 @@ config = StudyConfig(
     extra=0.2,
 
     # method
-    # ansatzType='Lagrange',
-    # ansatzType = 'InterpolatorySpline',
+    #ansatzType='Spline',
+    #ansatzType='InterpolatorySpline',
     ansatzType='Lagrange',
     n=12,
     p=3,
 
     continuity='p-1',
-    #mass='RS',
-    mass='HRZ',
-    #mass='RS',
+    #mass='CON',
+    #mass='HRZ',
+    mass='RS',
 
     depth=35,
-    stabilize=1e-8,
+    stabilize=0,
     spectral=False,
-    dual=False
+    dual=False,
+    smartQuadrature=False
 )
 
 # study
 eigenvalue = 6
-# nh = 10
-nRefinements = 450
+
+if config.extra == 0.0:
+    nRefinements = 9  # boundary fitted
+else:
+    nRefinements = 450  # immersed
 
 eigenvalueSearch = 'nearest'
-#eigenvalueSearch = 'number'
+# eigenvalueSearch = 'number'
 
 
 # analytical
@@ -65,7 +69,7 @@ allValues = []
 allValErrors = []
 allVecErrors = []
 allDofs = []
-allPs = [1, 2, 3, 4]
+allPs = [4]
 for p in allPs:
     config.p = p
 
@@ -78,8 +82,12 @@ for p in allPs:
     vecErrors = [0] * nStudies
     dofs = [0] * nStudies
     for i in range(nStudies):
-        n = int(12 / (p - k)) + i  # immersed
-        # n = int(12/(p-k) * 1.5 ** (i))  # boundary fitted
+
+        if config.extra == 0.0:
+            n = int(12/(p-k) * 1.5 ** i)  # boundary fitted
+        else:
+            n = int(12 / (p - k)) + i  # immersed
+
         print("p = %d, n = %d" % (p, n))
 
         config.n = n
