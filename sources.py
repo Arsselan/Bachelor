@@ -55,7 +55,7 @@ class NoSource:
         pass
 
     def ft(self, t):
-        return 0
+        return 1.0
 
     def fx(self, x):
         return x * 0
@@ -99,6 +99,15 @@ def applyGaussianInitialConditionsLeft(ansatz, dt, alpha):
     invI = np.linalg.inv(mat.toarray())
     u0 = invI.dot(u0)
     u1 = invI.dot(u1)
+
+    return u0, u1
+
+
+def applyConstantVelocityInitialConditions(ansatz, dt, velocity):
+
+    nDof = ansatz.nDof()
+    u0 = -np.ones(nDof) * velocity * dt
+    u1 = u0 * 0
 
     return u0, u1
 

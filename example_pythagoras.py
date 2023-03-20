@@ -14,7 +14,7 @@ right = 1.2
 extra = 0.0
 
 # method
-p = 2
+p = 3
 #ansatzType = 'Spline'
 ansatzType = 'InterpolatorySpline'
 #ansatzType = 'Lagrange'
@@ -268,7 +268,7 @@ for j in range(nRows):
 
     for i in range(nCols):
         index = system.nDof() - len(system.zeroDof) - 3 + i
-        index = 42 + i + nCols*j
+        index = 78 + i + nCols*j
 
         ax[j][i].plot(nodesEval, vEval[:, index], '-', label='numeric')
         ax[j][i].plot(nodesEval, vExact[:, index], '--', label='reference')

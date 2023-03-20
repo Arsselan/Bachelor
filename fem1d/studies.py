@@ -3,7 +3,7 @@ from waves1d import *
 
 class StudyConfig:
 
-    def __init__(self, left, right, extra, n, p, ansatzType, continuity, mass, depth, stabilize, spectral, dual, smartQuadrature):
+    def __init__(self, left, right, extra, n, p, ansatzType, continuity, mass, depth, stabilize, spectral, dual, smartQuadrature, source):
         self.left = left
         self.right = right
         self.extra = extra
@@ -19,6 +19,7 @@ class StudyConfig:
         self.spectral = spectral
         self.dual = dual
         self.smartQuadrature = smartQuadrature
+        self.source = source
 
         if ansatzType == 'Lagrange':
             self.continuity = '0'
@@ -66,13 +67,13 @@ class EigenvalueStudy:
 
         # create system
         if config.spectral:
-            system = TripletSystem.fromTwoQuadratures(ansatz, quadratureM, quadratureK)
+            system = TripletSystem.fromTwoQuadratures(ansatz, quadratureM, quadratureK, config.source.fx)
         else:
             if config.dual:
                 print("DUAL! %e" % extra)
-                system = TripletSystem.fromOneQuadratureWithDualBasis(ansatz, quadratureK)
+                system = TripletSystem.fromOneQuadratureWithDualBasis(ansatz, quadratureK, config.source.fx)
             else:
-                system = TripletSystem.fromOneQuadrature(ansatz, quadratureK)
+                system = TripletSystem.fromOneQuadrature(ansatz, quadratureK, config.source.fx)
 
         #    system.findZeroDof(-1e60, [0, 1, system.nDof()-2, system.nDof()-1])
         system.findZeroDof(0)
@@ -82,6 +83,7 @@ class EigenvalueStudy:
 
         # get matrices
         self.M, self.K, self.MHRZ, self.MRS = system.createSparseMatrices(returnHRZ=True, returnRS=True)
+        self.F = system.getReducedVector(system.F)
 
         self.grid = grid
         self.domain = domain
@@ -169,6 +171,117 @@ class EigenvalueStudy:
 
         return max(self.w)
 
+    def runCentralDifferenceMethod(self, dt, nt, u0, u1, evalPos):
+        if self.config.mass == 'CON':
+            M = self.M
+        elif self.config.mass == 'HRZ':
+            M = self.MHRZ
+        elif self.config.mass == 'RS':
+            M = self.MRS
+        else:
+            print("Error! Choose mass 'CON' or 'HRZ' or 'RS'")
+
+        # prepare result arrays
+        u = np.zeros((nt + 1, M.shape[0]))
+        fullU = np.zeros((nt + 1, self.ansatz.nDof()))
+        evalU = np.zeros((nt + 1, len(evalPos)))
+
+        times = np.zeros(nt + 1)
+
+        iMat = self.ansatz.interpolationMatrix(evalPos)
+
+        # set initial conditions
+        times[0] = -dt
+        times[1] = 0.0
+        u[0] = self.system.getReducedVector(u0)
+        u[1] = self.system.getReducedVector(u1)
+        for i in range(2):
+            fullU[i] = self.system.getFullVector(u[i])
+            evalU[i] = iMat * fullU[i]
+
+        #self.F = self.system.getReducedVector(self.system.F + createNeumannVector(self.system, [self.config.extra, self.config.right-self.config.extra], [-1, 1], [1, 1]))
+        #print(self.F)
+
+        nodes = self.grid.getNodes()
+        nNodes = len(nodes)
+
+        print("Factorization ... ", flush=True)
+        factorized = scipy.sparse.linalg.splu(M)
+
+        print("Time integration ... ", flush=True)
+        for i in range(2, nt + 1):
+            times[i] = i * dt
+            u[i] = factorized.solve(
+                M * (2 * u[i - 1] - u[i - 2]) + dt ** 2 * (self.F * self.config.source.ft((i - 1) * dt) - self.K * u[i - 1]))
+                #M * (2 * u[i - 1] - u[i - 2]) + dt ** 2 * (self.F - self.K * u[i - 1]))
+
+            #if u[i][-1] > 0.1:
+            #    print("CONTACT!")
+            #    u[i][-1] = 0.1
+            #    u[i-1][-1] = 0.1
+
+            fullU[i] = self.system.getFullVector(u[i])
+            evalU[i] = iMat * fullU[i]
+
+        return u, fullU, evalU, iMat
+
+    def runCentralDifferenceMethod2(self, dt, nt, u0, u1, evalPos):
+        if self.config.mass == 'CON':
+            M = self.M
+        elif self.config.mass == 'HRZ':
+            M = self.MHRZ
+        elif self.config.mass == 'RS':
+            M = self.MRS
+        else:
+            print("Error! Choose mass 'CON' or 'HRZ' or 'RS'")
+
+        # prepare result arrays
+        u = np.zeros((nt + 1, M.shape[0]))
+        fullU = np.zeros((nt + 1, self.ansatz.nDof()))
+        evalU = np.zeros((nt + 1, len(evalPos)))
+
+        times = np.zeros(nt + 1)
+
+        iMat = self.ansatz.interpolationMatrix(evalPos)
+
+        # set initial conditions
+        times[0] = -dt
+        times[1] = 0.0
+        u[0] = self.system.getReducedVector(u0)
+        u[1] = self.system.getReducedVector(u1)
+        for i in range(2):
+            fullU[i] = self.system.getFullVector(u[i])
+            evalU[i] = iMat * fullU[i]
+
+        #self.F = self.system.getReducedVector(self.system.F + createNeumannVector(self.system, [self.config.extra, self.config.right-self.config.extra], [-1, 1], [1, 1]))
+        #print(self.F)
+
+        nodes = self.grid.getNodes()
+        nNodes = len(nodes)
+
+        print("Factorization ... ", flush=True)
+        factorized = scipy.sparse.linalg.splu(M)
+
+        print("Time integration ... ", flush=True)
+        for i in range(2, nt + 1):
+            times[i] = i * dt
+            u[i] = factorized.solve(
+                M * (2 * u[i - 1] - u[i - 2]) + dt ** 2 * (self.F * self.config.source.ft((i - 1) * dt) - self.K * u[i - 1]))
+                #M * (2 * u[i - 1] - u[i - 2]) + dt ** 2 * (self.F - self.K * u[i - 1]))
+
+            if u[i][-1] > 0.1:
+                u[i][-1] = 0.1
+                u[i-1][-1] = 0.1
+
+            if u[i][0] < -0.1:
+                u[i][0] = -0.1
+                u[i-1][0] = -0.1
+
+            fullU[i] = self.system.getFullVector(u[i])
+            evalU[i] = iMat * fullU[i]
+
+        return times, u, fullU, evalU, iMat
+
 
 def findEigenvalue(w, eigenvalueSearch, eigenvalue, wExact):
     if eigenvalueSearch == 'nearest':
@@ -218,4 +331,44 @@ def findEigenvector(v, search, index, iMatrix, system, vExact):
 
     return vNum
 
+
+def correctTimeStepSize(dt, tMax, critDeltaT, safety=0.9):
+    if dt > critDeltaT * safety:
+        dt = critDeltaT * safety
+        nt = int(tMax / dt + 0.5)
+        dt = tMax / nt
+    return dt
+
+
+# Plot animation
+def postProcessTimeDomainSolution(study, evalNodes, evalU, tMax, nt, animationSpeed=4):
+    figure, ax = plt.subplots()
+    ax.set_xlim(study.grid.left, study.grid.right)
+    ax.set_ylim(-2, 2)
+
+    config = study.config
+    ax.plot([config.left+config.extra, config.left+config.extra], [-0.1, 0.1], '--', label='left boundary')
+    ax.plot([config.right-config.extra, config.right-config.extra], [-0.1, 0.1], '--', label='right boundary')
+
+    ax.plot(evalNodes, evalU[1], '--', label='initial condition')
+
+    line2, = ax.plot(0, 0, label='numerical')
+    line2.set_xdata(evalNodes)
+
+    ax.legend()
+
+    plt.rcParams['axes.titleweight'] = 'bold'
+    title = 'Solution'
+    plt.title(title)
+    plt.xlabel('solution')
+    plt.ylabel('x')
+
+    def prepareFrame(i):
+        step = int(round(i / tMax * nt))
+        plt.title(title + " time %3.2e step %d" % (i, step))
+        line2.set_ydata(evalU[step])
+
+    frames = np.linspace(0, tMax, round(tMax * 60 / animationSpeed))
+    animation = anim.FuncAnimation(figure, func=prepareFrame, frames=frames, interval=1000 / 60, repeat=False)
+    plt.show()
 

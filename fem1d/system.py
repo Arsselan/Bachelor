@@ -76,7 +76,6 @@ class TripletSystem:
                     c = 0
                 diagMe = diagMe * c
                 valMHRZ[eSlice] = diagMe.ravel()
-                # print("Lump error HRZ: %e" % np.linalg.norm(diagMe - Me))
             else:
                 valMRS[eSlice] = Me.ravel()
                 valMHRZ[eSlice] = Me.ravel()
@@ -370,3 +369,24 @@ def createCouplingMatrix(systemF, systemS, boundaries):
     C = scipy.sparse.coo_matrix((valC, (rowC, colC)), shape=(nDof, nDof)).tocsc()
 
     return C
+
+
+def createNeumannVector(system, boundaries, normals, forces):
+    nDof = system.nDof()
+    F = np.zeros(nDof)
+
+    p = system.ansatz.p
+    nBoundaries = len(boundaries)
+
+    for iBoundary in range(nBoundaries):
+        boundary = boundaries[iBoundary]
+
+        iElement = system.ansatz.grid.elementIndex(boundary)
+        shapes = system.ansatz.evaluate(boundary, 0, iElement)
+        lm = system.ansatz.locationMap(iElement)
+
+        F[lm] = np.array(shapes[0]) * normals[iBoundary] * forces[iBoundary]
+
+        print(F)
+
+    return F

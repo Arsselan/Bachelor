@@ -6,14 +6,15 @@ import scipy.sparse.linalg
 
 from scipy.interpolate import BSpline
 import bspline
+import lagrange
 from waves1d import *
 
 
 p = 3
-n = 12
+n = 2
 
 left = 0
-right = 1.2
+right = 1.0
 
 # create mesh
 print("Meshing...", flush=True)
@@ -21,6 +22,7 @@ print("Meshing...", flush=True)
 # Create grid and ansatz
 grid = UniformGrid(left, right, n)
 ansatz = createAnsatz('Spline', 'p-1', p, grid)
+ansatzLagrange = createAnsatz('Lagrange', '0', p, grid)
 t = ansatz.knots
 
 # Greville points
@@ -66,14 +68,16 @@ colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 nPoints = 50
 nElements = len(t) - 2 * p - 1
 dataSplines = np.ndarray((nPoints * nElements, 1 + nC))
+dataLagrange = np.ndarray((nPoints * nElements, 1 + (p+1) * nElements))
 
 dataFunc = np.ndarray((nPoints * nElements, 1 + nC))
 dataDeri = np.ndarray((nPoints * nElements, 1 + nC))
 for i in range(nElements):
     x1 = t[p + i]
     x2 = t[p + i + 1]
-    xx = np.linspace(x1, x2, nPoints)
+    xx = np.linspace(x1+1e-10, x2-1e-10, nPoints)
     yy = np.zeros((nPoints, p + 1))
+    yyLagrange = np.zeros((nPoints, p + 1))
     dy = np.zeros((nPoints, p + 1))
     tyy = np.zeros((nPoints, nC))
     tdy = np.zeros((nPoints, nC))
@@ -84,12 +88,16 @@ for i in range(nElements):
         invTAB = invT[:, ansatz.locationMap(i)]
         tyy[j] = invTAB.dot(yy[j])
         tdy[j] = invTAB.dot(dy[j])
+        dersLagrange = ansatzLagrange.evaluate(xx[j], p, i)
+        yyLagrange[j] = dersLagrange[0]
 
+    dataLagrange[i * nPoints:(i + 1) * nPoints, 0] = xx
     dataSplines[i*nPoints:(i+1)*nPoints, 0] = xx
     for j in range(p + 1):
         ax1.plot(xx, yy[:, j], '-', color=colors[(i + j) % len(colors)])
         ax21.plot(xx, dy[:, j], '-', color=colors[(i + j) % len(colors)])
         dataSplines[i * nPoints:(i + 1) * nPoints, 1 + j + i] = yy[:, j]
+        dataLagrange[i * nPoints:(i + 1) * nPoints, 1 + j + i*(p+1)] = yyLagrange[:, j]
 
     dataFunc[i*nPoints:(i+1)*nPoints, 0] = xx
     dataDeri[i * nPoints:(i + 1) * nPoints, 0] = xx
@@ -113,5 +121,6 @@ plt.show()
 fileBaseName = getFileBaseNameAndCreateDir("results/exampe_basis_transformation/", "basis")
 
 np.savetxt(fileBaseName + "_splines.dat", dataSplines)
+np.savetxt(fileBaseName + "_lagrange.dat", dataLagrange)
 np.savetxt(fileBaseName + "_functions.dat", dataFunc)
 np.savetxt(fileBaseName + "_derivatives.dat", dataDeri)

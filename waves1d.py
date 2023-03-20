@@ -31,6 +31,8 @@ class UniformGrid:
     def localPos(self, globalPos):
         return -1 + 2 * (globalPos - self.left - self.elementIndex(globalPos) * self.elementSize) / self.elementSize
 
+    def getNodes(self):
+        return np.linspace(self.left, self.right, self.nElements+1)
 
 class Domain:
     def __init__(self, alphaFunc):
