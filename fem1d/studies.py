@@ -1,4 +1,10 @@
-from waves1d import *
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.animation as anim
+import scipy.sparse
+import scipy.sparse.linalg
+
+import fem1d
 
 
 class StudyConfig:
@@ -35,7 +41,7 @@ class EigenvalueStudy:
         self.config = config
 
         # create grid and domain
-        grid = UniformGrid(config.left, config.right, config.n)
+        grid = fem1d.UniformGrid(config.left, config.right, config.n)
 
         left = config.left
         right = config.right
@@ -47,33 +53,33 @@ class EigenvalueStudy:
                 return 1
             return stabilize
 
-        domain = Domain(alpha)
+        domain = fem1d.Domain(alpha)
 
         # create ansatz and quadrature points
-        ansatz = createAnsatz(config.ansatzType, config.continuity, config.p, grid)
+        ansatz = fem1d.createAnsatz(config.ansatzType, config.continuity, config.p, grid)
 
         # gaussPointsM = gll.computeGllPoints(p + 1)
-        gaussPointsM = gll.computeGllPoints(config.p + 1)
+        gaussPointsM = fem1d.gll.computeGllPoints(config.p + 1)
         if config.smartQuadrature is False:
-            quadratureM = SpaceTreeQuadrature(grid, gaussPointsM, domain, config.depth)
+            quadratureM = fem1d.SpaceTreeQuadrature(grid, gaussPointsM, domain, config.depth)
         else:
-            quadratureM = SmartQuadrature(grid, gaussPointsM, domain, [extra, right-extra])
+            quadratureM = fem1d.SmartQuadrature(grid, gaussPointsM, domain, [extra, right-extra])
 
         gaussPointsK = np.polynomial.legendre.leggauss(config.p + 1)
         if config.smartQuadrature is False:
-            quadratureK = SpaceTreeQuadrature(grid, gaussPointsK, domain, config.depth)
+            quadratureK = fem1d.SpaceTreeQuadrature(grid, gaussPointsK, domain, config.depth)
         else:
-            quadratureK = SmartQuadrature(grid, gaussPointsK, domain, [extra, right-extra])
+            quadratureK = fem1d.SmartQuadrature(grid, gaussPointsK, domain, [extra, right-extra])
 
         # create system
         if config.spectral:
-            system = TripletSystem.fromTwoQuadratures(ansatz, quadratureM, quadratureK, config.source.fx)
+            system = fem1d.TripletSystem.fromTwoQuadratures(ansatz, quadratureM, quadratureK, config.source.fx)
         else:
             if config.dual:
                 print("DUAL! %e" % extra)
-                system = TripletSystem.fromOneQuadratureWithDualBasis(ansatz, quadratureK, config.source.fx)
+                system = fem1d.TripletSystem.fromOneQuadratureWithDualBasis(ansatz, quadratureK, config.source.fx)
             else:
-                system = TripletSystem.fromOneQuadrature(ansatz, quadratureK, config.source.fx)
+                system = fem1d.TripletSystem.fromOneQuadrature(ansatz, quadratureK, config.source.fx)
 
         #    system.findZeroDof(-1e60, [0, 1, system.nDof()-2, system.nDof()-1])
         system.findZeroDof(0)
@@ -94,6 +100,8 @@ class EigenvalueStudy:
 
         self.w = 0
         self.v = 0
+        self.nNegative = 0
+        self.nComplex = 0
 
     def runDense(self, computeEigenvectors=False, sort=False):
         if computeEigenvectors:
@@ -114,6 +122,16 @@ class EigenvalueStudy:
                 self.w = scipy.linalg.eigvals(self.K.toarray(), self.MRS.toarray())
             else:
                 print("Error! Choose mass 'CON' or 'HRZ' or 'RS'")
+
+        wNegative = self.w < 0
+        if wNegative.any():
+            print("Warning! Found negative eigenvalue.")
+        self.nNegative = wNegative.sum()
+
+        wComplex = np.abs(self.w.imag) > 0
+        if wComplex.any():
+            print("Warning! Found complex eigenvalue.")
+        self.nComplex = wComplex.sum()
 
         self.w = np.sqrt(np.abs(self.w))
 
@@ -285,18 +303,19 @@ class EigenvalueStudy:
 
 def findEigenvalue(w, eigenvalueSearch, eigenvalue, wExact):
     if eigenvalueSearch == 'nearest':
-        wNum = find_nearest(w, wExact)
-        idx = find_nearest_index(w, wExact)
+        wNum = fem1d.find_nearest(w, wExact)
+        idx = fem1d.find_nearest_index(w, wExact)
         print("w index = %d" % idx)
     elif eigenvalueSearch == 'number':
         wNum = w[eigenvalue]
+        idx = eigenvalue
     else:
         print("Error! Choose eigenvaluesSearch 'nearest' or 'number'")
 
     if np.imag(wNum) > 0:
         print("Warning! Chosen eigenvalue has imaginary part.")
 
-    return wNum
+    return wNum, idx
 
 
 def findEigenvector(v, search, index, iMatrix, system, vExact):
@@ -329,7 +348,7 @@ def findEigenvector(v, search, index, iMatrix, system, vExact):
     vNum = vNum / vNum[0]
     vNum *= np.linalg.norm(vExact) / np.linalg.norm(vNum)
 
-    return vNum
+    return vNum, minIndex
 
 
 def correctTimeStepSize(dt, tMax, critDeltaT, safety=0.9):

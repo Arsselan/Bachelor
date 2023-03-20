@@ -1,11 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.animation as anim
-import scipy.sparse
 import scipy.sparse.linalg
-import bspline
 
-from waves1d import *
+from context import fem1d
 
 # problem
 problemType = 'N'
@@ -47,7 +44,7 @@ axLimitHighY = 4
 
 
 # create grid and domain
-grid = UniformGrid(left, right, n)
+grid = fem1d.UniformGrid(left, right, n)
 
 
 def alpha(x):
@@ -56,25 +53,25 @@ def alpha(x):
     return 0
 
 
-domain = Domain(alpha)
+domain = fem1d.Domain(alpha)
 
 # create ansatz and quadrature
-ansatz = createAnsatz(ansatzType, continuity, p, grid)
+ansatz = fem1d.createAnsatz(ansatzType, continuity, p, grid)
 
-gaussPointsM = GLL(p + 1)
-quadratureM = SpaceTreeQuadrature(grid, gaussPointsM, domain, depth)
+gaussPointsM = fem1d.gll.computeGllPoints(p + 1)
+quadratureM = fem1d.SpaceTreeQuadrature(grid, gaussPointsM, domain, depth)
 
 gaussPointsK = np.polynomial.legendre.leggauss(p + 1)
-quadratureK = SpaceTreeQuadrature(grid, gaussPointsK, domain, depth)
+quadratureK = fem1d.SpaceTreeQuadrature(grid, gaussPointsK, domain, depth)
 
 # create system
 if spectral:
-    system = TripletSystem.fromTwoQuadratures(ansatz, quadratureM, quadratureK)
+    system = fem1d.TripletSystem.fromTwoQuadratures(ansatz, quadratureM, quadratureK)
 else:
     if dual:
-        system = TripletSystem.fromOneQuadratureWithDualBasis(ansatz, quadratureK, selectiveLumping=selective)
+        system = fem1d.TripletSystem.fromOneQuadratureWithDualBasis(ansatz, quadratureK, selectiveLumping=selective)
     else:
-        system = TripletSystem.fromOneQuadrature(ansatz, quadratureK, selectiveLumping=selective)
+        system = fem1d.TripletSystem.fromOneQuadrature(ansatz, quadratureK, selectiveLumping=selective)
 
 if problemType == 'N':
     system.findZeroDof(0)
@@ -173,9 +170,9 @@ vErrors = 0 * w
 eErrors = 0 * w
 for i in range(len(w)):
     if eigenvalueSearch == 'nearest':
-        idx = find_nearest_index(w, wExact[i])
+        idx = fem1d.find_nearest_index(w, wExact[i])
     elif eigenvalueSearch == 'number':
-        idx = find_nearest_index(w, wSorted[i])
+        idx = fem1d.find_nearest_index(w, wSorted[i])
     else:
         print("Error! Choose eigenvalueSearch 'nearest' or 'number'")
 
@@ -246,10 +243,10 @@ figure.suptitle(title)
 ax1.set_xlabel('index')
 ax1.set_ylabel('eigenvalue')
 
-fileBaseName = getFileBaseNameAndCreateDir("results/example_pythagoras/", title.replace(' ', '_'))
+fileBaseName = fem1d.getFileBaseNameAndCreateDir("results/example_pythagoras/", title.replace(' ', '_'))
 
-writeColumnFile(fileBaseName + '_frequencies_p=' + str(p) + '.dat', (indices, np.sqrt(wExact), np.sqrt(wSorted), np.sqrt(wNearest)))
-writeColumnFile(fileBaseName + '_pythagoras_p=' + str(p) + '.dat', (indices[1:], wErrors[1:], vErrors[1:], eErrors[1:], wErrors[1:] + vErrors[1:], np.abs(wErrors[1:]) + vErrors[1:]))
+fem1d.writeColumnFile(fileBaseName + '_frequencies_p=' + str(p) + '.dat', (indices, np.sqrt(wExact), np.sqrt(wSorted), np.sqrt(wNearest)))
+fem1d.writeColumnFile(fileBaseName + '_pythagoras_p=' + str(p) + '.dat', (indices[1:], wErrors[1:], vErrors[1:], eErrors[1:], wErrors[1:] + vErrors[1:], np.abs(wErrors[1:]) + vErrors[1:]))
 
 plt.savefig(fileBaseName + '.pdf')
 plt.show()
@@ -277,7 +274,7 @@ for j in range(nRows):
         ax[j][i].set_ylabel('eigenvector')
         ax[j][i].set_title('v ' + str(index+1) + ' / ' + str(system.nDof() - len(system.zeroDof)) + ' e=' + str(vErrors[index]))
 
-        writeColumnFile(fileBaseName + '_vector' + str(index+1) + '_p=' + str(p) + '.dat', (nodesEval, vEval[:, index], vExact[:, index]))
+        fem1d.writeColumnFile(fileBaseName + '_vector' + str(index+1) + '_p=' + str(p) + '.dat', (nodesEval, vEval[:, index], vExact[:, index]))
 
 plt.savefig(fileBaseName + '_high_vectors.pdf')
 
