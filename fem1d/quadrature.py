@@ -1,45 +1,8 @@
-import matplotlib.pyplot as plt
-import matplotlib.animation as anim
-import scipy.sparse
-import scipy.sparse.linalg
-import scipy.interpolate
-
-import lagrange
-import bspline
-import gll
-
-from sandbox.gllTemp import *
-from fem1d.ansatz import *
-from fem1d.system import *
-from fem1d.utilities import *
+import numpy as np
 
 
-class UniformGrid:
-    def __init__(self, left, right, nElements):
-        self.left = left
-        self.right = right
-        self.length = right - left
-        self.elementSize = self.length / nElements
-        self.nElements = nElements
-
-    def pos(self, iElement, localCoord):
-        return self.left + self.elementSize * (iElement + (localCoord + 1) / 2)
-
-    def elementIndex(self, globalPos):
-        return min(self.nElements - 1, int((globalPos - self.left) / self.length * self.nElements))
-
-    def localPos(self, globalPos):
-        return -1 + 2 * (globalPos - self.left - self.elementIndex(globalPos) * self.elementSize) / self.elementSize
-
-    def getNodes(self):
-        return np.linspace(self.left, self.right, self.nElements+1)
-
-class Domain:
-    def __init__(self, alphaFunc):
-        self.alphaFunc = alphaFunc
-
-    def alpha(self, globalPos):
-        return self.alphaFunc(globalPos)
+def createGaussLegendreQuadraturePoints(nPoints):
+    return np.polynomial.legendre.leggauss(nPoints)
 
 
 class SpaceTreeQuadrature:
@@ -125,21 +88,3 @@ class SmartQuadrature:
             print("Error! Element from %e to %e is cut multiple times." % (x1, x2))
         return [], [], []
 
-
-def createAnsatz(ansatzType, continuity, p, grid):
-    if ansatzType == 'Spline':
-        k = eval(continuity)
-        k = max(0, min(k, p - 1))
-        ansatz = SplineAnsatz(grid, p, k)
-    elif ansatzType == 'InterpolatorySpline':
-        k = eval(continuity)
-        k = max(0, min(k, p - 1))
-        ansatz = InterpolatorySplineAnsatz(grid, p, k)
-    elif ansatzType == 'Lagrange':
-        gllPoints = gll.computeGllPoints(p + 1)
-        ansatz = LagrangeAnsatz(grid, gllPoints[0])
-    else:
-        print("Error! Choose ansatzType 'Spline' or 'Lagrange' or 'InterpolatorySpline'.")
-        return None
-
-    return ansatz

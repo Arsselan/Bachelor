@@ -3,11 +3,8 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as anim
 import scipy.sparse
 import scipy.sparse.linalg
-import bspline
 
-from waves1d import *
-from sources import *
-from progress import *
+import fem1d
 
 # problem
 left = 0
@@ -27,7 +24,7 @@ def alphaS(x):
     return 1e-8
 
 
-source = RicklersWavelet(1.0, alphaF)
+source = fem1d.sources.RicklersWavelet(1.0, alphaF)
 
 # method
 # ansatzType = 'Spline'
@@ -41,20 +38,20 @@ nt = 10000
 dt = tMax / nt
 
 # create grid and domains
-grid = UniformGrid(left, right, n)
-domainS = Domain(alphaS)
-domainF = Domain(alphaF)
+grid = fem1d.UniformGrid(left, right, n)
+domainS = fem1d.Domain(alphaS)
+domainF = fem1d.Domain(alphaF)
 
 # create ansatz and quadratures
-ansatz = createAnsatz(ansatzType, continuity, p, grid)
+ansatz = fem1d.createAnsatz(ansatzType, continuity, p, grid)
 
-gaussPoints = np.polynomial.legendre.leggauss(p + 8)
-quadratureF = SpaceTreeQuadrature(grid, gaussPoints, domainF, spaceTreeDepth)
-quadratureS = SpaceTreeQuadrature(grid, gaussPoints, domainS, spaceTreeDepth)
+gaussPoints = fem1d.createGaussLegendreQuadraturePoints(p+8)
+quadratureF = fem1d.SpaceTreeQuadrature(grid, gaussPoints, domainF, spaceTreeDepth)
+quadratureS = fem1d.SpaceTreeQuadrature(grid, gaussPoints, domainS, spaceTreeDepth)
 
 # create system
-systemF = TripletSystem.fromOneQuadrature(ansatz, quadratureF, source.fx)
-systemS = TripletSystem.fromOneQuadrature(ansatz, quadratureS)
+systemF = fem1d.TripletSystem.fromOneQuadrature(ansatz, quadratureF, source.fx)
+systemS = fem1d.TripletSystem.fromOneQuadrature(ansatz, quadratureS)
 
 systemF.findZeroDof(-1e60)
 systemS.findZeroDof(-1e60)
@@ -65,9 +62,9 @@ print("Zero dof S: " + str(systemS.zeroDof))
 nDofF = systemF.nDof()
 nDofS = systemS.nDof()
 
-M, K = createSparseMatrices(systemF, systemS)
-C = createCouplingMatrix(systemF, systemS, [boundary])
-F = getReducedVector(systemF, systemS)
+M, K = fem1d.createSparseMatrices(systemF, systemS)
+C = fem1d.createCouplingMatrix(systemF, systemS, [boundary])
+F = fem1d.getReducedVector(systemF, systemS)
 
 # compute critical time step size
 w = scipy.sparse.linalg.eigs(K, 1, M + dt / 2 * C, which='LM', return_eigenvectors=False)

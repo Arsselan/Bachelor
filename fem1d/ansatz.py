@@ -2,10 +2,9 @@ import numpy as np
 import scipy.sparse
 import scipy.sparse.linalg
 
-import lagrange
-import bspline
-import gll
-
+from . import lagrange
+from . import bspline
+from . import gll
 
 def createKnotVector(grid, p, k):
     extra = grid.length / grid.nElements * p
@@ -212,3 +211,21 @@ class LagrangeAnsatz:
             val[pSlice] = basis[order]
         return scipy.sparse.coo_matrix((val, (row, col)), shape=(n, self.nDof())).tocsc()
 
+
+def createAnsatz(ansatzType, continuity, p, grid):
+    if ansatzType == 'Spline':
+        k = eval(continuity)
+        k = max(0, min(k, p - 1))
+        ansatz = SplineAnsatz(grid, p, k)
+    elif ansatzType == 'InterpolatorySpline':
+        k = eval(continuity)
+        k = max(0, min(k, p - 1))
+        ansatz = InterpolatorySplineAnsatz(grid, p, k)
+    elif ansatzType == 'Lagrange':
+        gllPoints = gll.computeGllPoints(p + 1)
+        ansatz = LagrangeAnsatz(grid, gllPoints[0])
+    else:
+        print("Error! Choose ansatzType 'Spline' or 'Lagrange' or 'InterpolatorySpline'.")
+        return None
+
+    return ansatz
