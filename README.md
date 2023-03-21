@@ -27,18 +27,16 @@ For the compilation to work, pybind11 must be inside the respective directory. I
 git submodule update --init
 ```
 
+### Running tests
+You should run the test suite using
+```
+py.test-3 tests
+```
+
 ### Running examples
 You may run examples using
 ```
-python3 -i -m examples.NAME_OF_THE_EXAMPLE_WITHOUT_EXTENSION
-```
-Alternatively, you may run
-```
-. setup.sh
-```
-This will add the current directory to `$PYTHONPATH`. Afterwards, you can run examples using
-```
-python3 -i -m examples/NAME_OF_THE_EXAMPLE_FILE
+python3 -i -m examples/NAME_OF_THE_EXAMPLE_FILE.py
 ```
 
 ## Physics

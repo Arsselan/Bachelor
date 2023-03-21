@@ -6,6 +6,7 @@ from . import lagrange
 from . import bspline
 from . import gll
 
+
 def createKnotVector(grid, p, k):
     extra = grid.length / grid.nElements * p
     t = np.linspace(grid.left - extra, grid.right + extra, grid.nElements + 1 + 2 * p)

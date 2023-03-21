@@ -271,9 +271,6 @@ class EigenvalueStudy:
             fullU[i] = self.system.getFullVector(u[i])
             evalU[i] = iMat * fullU[i]
 
-        #self.F = self.system.getReducedVector(self.system.F + createNeumannVector(self.system, [self.config.extra, self.config.right-self.config.extra], [-1, 1], [1, 1]))
-        #print(self.F)
-
         nodes = self.grid.getNodes()
         nNodes = len(nodes)
 
@@ -297,6 +294,12 @@ class EigenvalueStudy:
 
             fullU[i] = self.system.getFullVector(u[i])
             evalU[i] = iMat * fullU[i]
+
+            currentPos = evalPos + evalU[i]
+            if (currentPos > self.grid.right + 0.1).any():
+                print("Error! Right end penetrates boundary.")
+            if (currentPos < self.grid.left - 0.1).any():
+                print("Error! Left end penetrates boundary.")
 
         return times, u, fullU, evalU, iMat
 
@@ -385,7 +388,8 @@ def postProcessTimeDomainSolution(study, evalNodes, evalU, tMax, nt, animationSp
     def prepareFrame(i):
         step = int(round(i / tMax * nt))
         plt.title(title + " time %3.2e step %d" % (i, step))
-        line2.set_ydata(evalU[step])
+        #line2.set_ydata(evalU[step])
+        line2.set_xdata(evalNodes + evalU[step])
 
     frames = np.linspace(0, tMax, round(tMax * 60 / animationSpeed))
     animation = anim.FuncAnimation(figure, func=prepareFrame, frames=frames, interval=1000 / 60, repeat=False)

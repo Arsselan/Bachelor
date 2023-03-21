@@ -8,7 +8,7 @@ config = fem1d.StudyConfig(
     # problem
     left=0,
     right=1.2,
-    extra=0.2*0,
+    extra=0.2,
 
     # method
     #ansatzType='Spline',
@@ -70,7 +70,7 @@ allVecValChecks = []
 allValNegative = []
 allValComplex = []
 allDofs = []
-allPs = [1, 2, 3, 4]
+allPs = [4]
 for p in allPs:
     config.p = p
 
@@ -143,10 +143,10 @@ def postProcess():
     plt.rcParams['axes.titleweight'] = 'bold'
     colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
-    if config.extra != 0:
-        ax.set_ylim(1e-8, 10)
-    else:
-        ax.set_ylim(1e-11, 10)
+    #if config.extra != 0:
+    #    ax.set_ylim(1e-8, 10)
+    #else:
+    #    ax.set_ylim(1e-11, 10)
 
     iStudy = 0
     for p in allPs:
