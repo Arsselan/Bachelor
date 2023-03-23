@@ -225,6 +225,7 @@ def createAnsatz(ansatzType, continuity, p, grid):
     elif ansatzType == 'Lagrange':
         gllPoints = gll.computeGllPoints(p + 1)
         ansatz = LagrangeAnsatz(grid, gllPoints[0])
+        #ansatz = LagrangeAnsatz(grid, np.linspace(-1, 1, p+1))
     else:
         print("Error! Choose ansatzType 'Spline' or 'Lagrange' or 'InterpolatorySpline'.")
         return None

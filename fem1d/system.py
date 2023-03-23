@@ -5,7 +5,7 @@ from fem1d.ansatz import *
 
 
 class TripletSystem:
-    def __init__(self, ansatz, valM, valMHRZ, valMRS, valK, row, col, F):
+    def __init__(self, ansatz, valM, valMHRZ, valMRS, valK, row, col, F, minNonZeroMass=-1):
         self.ansatz = ansatz
         self.valM = valM
         self.valMHRZ = valMHRZ
@@ -14,6 +14,12 @@ class TripletSystem:
         self.row = row
         self.col = col
         self.F = F
+
+        self.zeroDof = []
+        self.dofMap = []
+        self.nonZeroDof = []
+
+        self.minNonZeroMass = minNonZeroMass
 
     @classmethod
     def fromOneQuadrature(cls, ansatz, quadrature, bodyLoad=lambda x: 0.0, selectiveLumping=False):
@@ -33,6 +39,8 @@ class TripletSystem:
         valK = np.zeros(nVal * n)
         F = np.zeros((ansatz.nDof(),))
 
+        minMass = float('inf')
+        minMassElement = 0
         for iElement in range(n):
             lm = ansatz.locationMap(iElement)
             Me = np.zeros((nShapesPerElement, nShapesPerElement))
@@ -58,7 +66,12 @@ class TripletSystem:
             valM[eSlice] = Me.ravel()
             F[lm] += Fe
 
+            if minMass > mass > 0:
+                minMass = mass
+                minMassElement = iElement
+
             if selectiveLumping is False or len(quadrature.cuts[iElement]) > 0:
+            #if len(quadrature.cuts[iElement]) < 0:
                 diagMe = np.zeros(Me.shape)
                 for iEntry in range(Me.shape[0]):
                     diagMe[iEntry, iEntry] = sum(Me[iEntry, :])
@@ -71,7 +84,7 @@ class TripletSystem:
                     diagMe[iEntry, iEntry] = Me[iEntry, iEntry]
                     sumMe += Me[iEntry, iEntry]
                 if sumMe > 0:
-                    c = mass * 1 / sumMe
+                    c = mass * 1.0 / sumMe
                 else:
                     c = 0
                 diagMe = diagMe * c
@@ -80,7 +93,7 @@ class TripletSystem:
                 valMRS[eSlice] = Me.ravel()
                 valMHRZ[eSlice] = Me.ravel()
 
-        return cls(ansatz, valM, valMHRZ, valMRS, valK, row, col, F)
+        return cls(ansatz, valM, valMHRZ, valMRS, valK, row, col, F, minMass)
 
     @classmethod
     def fromTwoQuadratures(cls, ansatz, quadratureM, quadratureK, bodyLoad=lambda x: 0.0, selectiveLumping=False):
@@ -241,8 +254,7 @@ class TripletSystem:
         nVals = len(self.row)
         for i in range(nVals):
             iRow = self.row[i]
-            # diag[iRow] += abs(self.valM[i])
-            diag[iRow] += self.valM[i]
+            diag[iRow] += self.valMHRZ[i]
         self.zeroDof = []
         self.dofMap = [0] * nDof
         nNonZeroDof = 0

@@ -57,8 +57,6 @@ class EigenvalueStudy:
 
         # create ansatz and quadrature points
         ansatz = fem1d.createAnsatz(config.ansatzType, config.continuity, config.p, grid)
-
-        # gaussPointsM = gll.computeGllPoints(p + 1)
         gaussPointsM = fem1d.gll.computeGllPoints(config.p + 1)
         if config.smartQuadrature is False:
             quadratureM = fem1d.SpaceTreeQuadrature(grid, gaussPointsM, domain, config.depth)
@@ -103,25 +101,24 @@ class EigenvalueStudy:
         self.nNegative = 0
         self.nComplex = 0
 
-    def runDense(self, computeEigenvectors=False, sort=False):
-        if computeEigenvectors:
-            if self.config.mass == 'CON':
-                self.w, self.v = scipy.linalg.eig(self.K.toarray(), self.M.toarray(), right=True)
-            elif self.config.mass == 'HRZ':
-                self.w, self.v = scipy.linalg.eig(self.K.toarray(), self.MHRZ.toarray(), right=True)
-            elif self.config.mass == 'RS':
-                self.w, self.v = scipy.linalg.eig(self.K.toarray(), self.MRS.toarray(), right=True)
-            else:
-                print("Error! Choose mass 'CON' or 'HRZ' or 'RS'")
+    def getMassMatrix(self):
+        if self.config.mass == 'CON':
+            return self.M
+        elif self.config.mass == 'HRZ':
+            return self.MHRZ
+        elif self.config.mass == 'RS':
+            return self.MRS
         else:
-            if self.config.mass == 'CON':
-                self.w = scipy.linalg.eigvals(self.K.toarray(), self.M.toarray())
-            elif self.config.mass == 'HRZ':
-                self.w = scipy.linalg.eigvals(self.K.toarray(), self.MHRZ.toarray())
-            elif self.config.mass == 'RS':
-                self.w = scipy.linalg.eigvals(self.K.toarray(), self.MRS.toarray())
-            else:
-                print("Error! Choose mass 'CON' or 'HRZ' or 'RS'")
+            print("Error! Choose mass 'CON' or 'HRZ' or 'RS'")
+
+    def runDense(self, computeEigenvectors=False, sort=False):
+        M = self.getMassMatrix()
+        if computeEigenvectors:
+            self.w, self.v = scipy.linalg.eig(self.K.toarray(), M.toarray(), right=True)
+            # self.w, self.v = scipy.linalg.eigh(self.K.toarray(), M.toarray())
+            # self.w, self.v = scipy.linalg.eigh(np.float32(self.K.toarray()), np.float32(M.toarray()))
+        else:
+            self.w = scipy.linalg.eigvals(self.K.toarray(), self.M.toarray())
 
         wNegative = self.w < 0
         if wNegative.any():
@@ -145,25 +142,14 @@ class EigenvalueStudy:
 
     def runSparse(self, computeEigenvectors=False, sort=False):
         nEigen = self.K.shape[0] - 2
-
+        M = self.getMassMatrix()
         if computeEigenvectors:
-            if self.config.mass == 'CON':
-                self.w, self.v = scipy.sparse.linalg.eigs(self.K, nEigen, self.M, which='SM', return_eigenvectors=True)
-            elif self.config.mass == 'HRZ':
-                self.w, self.v = scipy.sparse.linalg.eigs(self.K, nEigen, self.MHRZ, which='SM', return_eigenvectors=True)
-            elif self.config.mass == 'RS':
-                self.w, self.v = scipy.sparse.linalg.eigs(self.K, nEigen, self.MRS, which='SM', return_eigenvectors=True)
-            else:
-                print("Error! Choose mass 'CON' or 'HRZ' or 'RS'")
+            # self.w, self.v = scipy.sparse.linalg.eigs(self.K, nEigen, M, which='SM', return_eigenvectors=True)
+            self.w, self.v = scipy.sparse.linalg.eigsh(self.K, nEigen, M, which='SM', return_eigenvectors=True)
+            # self.w, self.v = scipy.sparse.linalg.eigsh(self.K, nEigen, M, sigma=0, ncv=self.K.shape[0], maxiter=5000, which='LM', return_eigenvectors=True)
+            # self.w, self.v = scipy.sparse.linalg.eigsh(self.K.astype("float32"), nEigen, M.astype("float32"), which='SM', return_eigenvectors=True)
         else:
-            if self.config.mass == 'CON':
-                self.w = scipy.sparse.linalg.eigs(self.K, self.K.shape[0] - 2, self.M, which='SM', return_eigenvectors=False)
-            elif self.config.mass == 'HRZ':
-                self.w = scipy.sparse.linalg.eigs(self.K, self.K.shape[0] - 2, self.MHRZ, which='SM', return_eigenvectors=False)
-            elif self.config.mass == 'RS':
-                self.w = scipy.sparse.linalg.eigs(self.K, self.K.shape[0] - 2, self.MRS, which='SM', return_eigenvectors=False)
-            else:
-                print("Error! Choose mass 'CON' or 'HRZ' or 'RS'")
+            self.w = scipy.sparse.linalg.eigs(self.K, nEigen, M, which='SM', return_eigenvectors=False)
 
         self.w = np.sqrt(np.abs(self.w))
 
@@ -176,28 +162,15 @@ class EigenvalueStudy:
         return max(self.w)
 
     def computeLargestEigenvalueSparse(self):
-        if self.config.mass == 'CON':
-            self.w = scipy.sparse.linalg.eigs(self.K, 1, self.M, which='LM', return_eigenvectors=False)
-        elif self.config.mass == 'HRZ':
-            self.w = scipy.sparse.linalg.eigs(self.K, 1, self.MHRZ, which='LM', return_eigenvectors=False)
-        elif self.config.mass == 'RS':
-            self.w = scipy.sparse.linalg.eigs(self.K, 1, self.MRS, which='LM', return_eigenvectors=False)
-        else:
-            print("Error! Choose mass 'CON' or 'HRZ' or 'RS'")
+        M = self.getMassMatrix()
+        self.w = scipy.sparse.linalg.eigs(self.K, 1, self.M, which='LM', return_eigenvectors=False)
 
         self.w = np.sqrt(np.abs(self.w))
 
         return max(self.w)
 
     def runCentralDifferenceMethod(self, dt, nt, u0, u1, evalPos):
-        if self.config.mass == 'CON':
-            M = self.M
-        elif self.config.mass == 'HRZ':
-            M = self.MHRZ
-        elif self.config.mass == 'RS':
-            M = self.MRS
-        else:
-            print("Error! Choose mass 'CON' or 'HRZ' or 'RS'")
+        M = self.getMassMatrix()
 
         # prepare result arrays
         u = np.zeros((nt + 1, M.shape[0]))
@@ -300,6 +273,113 @@ class EigenvalueStudy:
                 print("Error! Right end penetrates boundary.")
             if (currentPos < self.grid.left - 0.1).any():
                 print("Error! Left end penetrates boundary.")
+
+        return times, u, fullU, evalU, iMat
+
+    def runCentralDifferenceMethod3(self, dt, nt, u0, u1, evalPos):
+        M = self.getMassMatrix()
+
+        # prepare result arrays
+        u = np.zeros((nt + 1, M.shape[0]))
+        fullU = np.zeros((nt + 1, self.ansatz.nDof()))
+        evalU = np.zeros((nt + 1, len(evalPos)))
+
+        times = np.zeros(nt + 1)
+
+        iMat = self.ansatz.interpolationMatrix(evalPos)
+
+        # set initial conditions
+        times[0] = -dt
+        times[1] = 0.0
+        u[0] = self.system.getReducedVector(u0)
+        u[1] = self.system.getReducedVector(u1)
+        for i in range(2):
+            fullU[i] = self.system.getFullVector(u[i])
+            evalU[i] = iMat * fullU[i]
+
+        nodes = self.grid.getNodes()
+        nNodes = len(nodes)
+
+        print("Factorization ... ", flush=True)
+        factorized = scipy.sparse.linalg.splu(M)
+
+        print("Time integration ... ", flush=True)
+        self.F = self.F * 0
+        onepercent = int(nt / 100)
+        for i in range(2, nt + 1):
+            if i % onepercent == 0:
+                print("%d / %d" % (i, nt))
+            times[i] = i * dt
+            u[i] = factorized.solve(M * (2 * u[i - 1] - u[i - 2]) + dt ** 2 * (self.F - self.K * u[i - 1]))
+
+            penalty = 1e3
+            if u[i][-1] > 0.1 and u[i][-1] - u[i-1][-1] > 0:
+                self.F[-1] = penalty * (0.1 - u[i][-1])
+            else:
+                self.F[-1] = 0
+
+            if u[i][0] < -0.1 and u[i][0] - u[i-1][0] < 0:
+                self.F[0] = penalty * (-0.1 - u[i][0])
+            else:
+                self.F[0] = 0
+
+            fullU[i] = self.system.getFullVector(u[i])
+            evalU[i] = iMat * fullU[i]
+
+        return times, u, fullU, evalU, iMat
+
+    def runCentralDifferenceMethod4(self, dt, nt, u0, u1, evalPos):
+        M = self.getMassMatrix()
+
+        # prepare result arrays
+        u = np.zeros((3, M.shape[0]))
+        fullU = np.zeros((3, self.ansatz.nDof()))
+        evalU = np.zeros((nt + 1, len(evalPos)))
+
+        times = np.zeros(nt + 1)
+
+        iMat = self.ansatz.interpolationMatrix(evalPos)
+
+        # set initial conditions
+        times[0] = -dt
+        times[1] = 0.0
+        u[0] = self.system.getReducedVector(u0)
+        u[1] = self.system.getReducedVector(u1)
+        for i in range(2):
+            fullU[i] = self.system.getFullVector(u[i])
+            evalU[i] = iMat * fullU[i]
+
+        nodes = self.grid.getNodes()
+        nNodes = len(nodes)
+
+        print("Factorization ... ", flush=True)
+        factorized = scipy.sparse.linalg.splu(M)
+
+        print("Time integration ... ", flush=True)
+        self.F = self.F * 0
+        onepercent = int(nt / 100)
+        for i in range(2, nt + 1):
+            if i % onepercent == 0:
+                print("%d / %d" % (i, nt))
+            times[i] = i * dt
+            u[2] = factorized.solve(M * (2 * u[1] - u[0]) + dt ** 2 * (self.F - self.K * u[1]))
+
+            penalty = 1e3
+            if u[2][-1] > 0.1 and u[2][-1] - u[1][-1] > 0:
+                self.F[-1] = penalty * (0.1 - u[2][-1])
+            else:
+                self.F[-1] = 0
+
+            if u[2][0] < -0.1 and u[2][0] - u[1][0] < 0:
+                self.F[0] = penalty * (-0.1 - u[2][0])
+            else:
+                self.F[0] = 0
+
+            fullU[2] = self.system.getFullVector(u[2])
+            evalU[i] = iMat * fullU[2]
+
+            u[0] = u[1]
+            u[1] = u[2]
 
         return times, u, fullU, evalU, iMat
 

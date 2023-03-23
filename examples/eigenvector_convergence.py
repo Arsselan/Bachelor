@@ -19,10 +19,10 @@ config = fem1d.StudyConfig(
 
     continuity='1',
     #mass='CON',
-    mass='HRZ',
-    #mass='RS',
+    #mass='HRZ',
+    mass='RS',
 
-    depth=35,
+    depth=15,
     stabilize=0,
     spectral=False,
     dual=False,
@@ -69,7 +69,12 @@ allVecErrors = []
 allVecValChecks = []
 allValNegative = []
 allValComplex = []
+allMinMass = []
 allDofs = []
+allFirstElementM = []
+allCondM = []
+allCondK = []
+
 allPs = [4]
 for p in allPs:
     config.p = p
@@ -82,6 +87,8 @@ for p in allPs:
     else:
         nStudies = int(nRefinements / (p - k))
 
+    #nStudies = 3
+
     values = [0] * nStudies
     valErrors = [0] * nStudies
     vecErrors = [0] * nStudies
@@ -89,6 +96,10 @@ for p in allPs:
     vecValChecks = [0] * nStudies
     valNegative = [0] * nStudies
     valComplex = [0] * nStudies
+    minMass = [0] * nStudies
+    firstElementM = [0] * nStudies
+    condM = [0] * nStudies
+    condK = [0] * nStudies
 
     for i in range(nStudies):
 
@@ -96,6 +107,8 @@ for p in allPs:
             n = int(12/(p-k) * 1.5 ** i)  # boundary fitted
         else:
             n = int(12 / (p - k)) + i  # immersed
+
+        n = 13 + i
 
         print("p = %d, n = %d" % (p, n))
 
@@ -105,10 +118,12 @@ for p in allPs:
         config.n = n
         study = fem1d.EigenvalueStudy(config)
 
-        if config.ansatzType == 'Lagrange' and config.mass == 'RS':
-            study.runDense(computeEigenvectors=True, sort=True)
-        else:
-            study.runSparse(computeEigenvectors=True, sort=True)
+        #if config.ansatzType == 'Lagrange' and config.mass == 'RS':
+        #    study.runDense(computeEigenvectors=True, sort=True)
+        #else:
+        #    study.runSparse(computeEigenvectors=True, sort=True)
+
+        study.runDense(computeEigenvectors=True, sort=True)
 
         dofs[i] = study.system.nDof()
 
@@ -119,12 +134,20 @@ for p in allPs:
         eVector, vIdx = fem1d.findEigenvector(study.v, eigenvalueSearch, eigenvalue, iMatrix, study.system, vExact)
         vecErrors[i] = np.linalg.norm(eVector - vExact) / np.linalg.norm(vExact)
 
-        MAT = (study.K.toarray() - study.w[wIdx]**2 * study.MRS.toarray())
+        # eVector2, vIdx2 = fem1d.findEigenvector(study.v, "number", eigenvalue, iMatrix, study.system, vExact)
+        # eVector3, vIdx3 = fem1d.findEigenvector(study.v, "number", wIdx, iMatrix, study.system, vExact)
+        # fem1d.plot(nodesEval, [vExact, eVector, eVector2, eVector3], ["exact", "nearest", "number", "nearest w"])
+
+        MAT = (study.K.toarray() - study.w[wIdx]**2 * study.getMassMatrix().toarray())
         VEC = study.v[:, vIdx]
 
         vecValChecks[i] = np.linalg.norm(np.matmul(MAT, VEC))
-        valNegative[i] = study.nNegative + 1e-3
-        valComplex[i] = study.nComplex + 1e-3
+        valNegative[i] = study.nNegative
+        valComplex[i] = study.nComplex
+        minMass[i] = study.system.minNonZeroMass
+        firstElementM[i] = study.getMassMatrix().diagonal()[0]
+        condM[i] = np.linalg.cond(study.getMassMatrix().toarray())
+        condK[i] = np.linalg.cond(study.K.toarray())
 
         print("dof = %e, w = %e, eVec = %e, eVal = %e" % (dofs[i], values[i], vecErrors[i], valErrors[i]))
 
@@ -136,6 +159,10 @@ for p in allPs:
     allVecValChecks.append(vecValChecks)
     allValNegative.append(valNegative)
     allValComplex.append(valComplex)
+    allMinMass.append(minMass)
+    allFirstElementM.append(firstElementM)
+    allCondM.append(condM)
+    allCondK.append(condK)
 
 
 def postProcess():
@@ -148,12 +175,19 @@ def postProcess():
     #else:
     #    ax.set_ylim(1e-11, 10)
 
+    float32data = np.loadtxt("error_p4_float32.dat")
+
     iStudy = 0
     for p in allPs:
         ax.loglog(allDofs[iStudy], allVecErrors[iStudy], '-o', label='p=' + str(p), color=colors[p - 1])
-        ax.loglog(allDofs[iStudy], allVecValChecks[iStudy], '--x', label='check acc p=' + str(p), color=colors[p - 1])
-        ax.loglog(allDofs[iStudy], allValNegative[iStudy], '-.x', label='check neg p=' + str(p), color=colors[p - 1])
-        ax.loglog(allDofs[iStudy], allValComplex[iStudy], ':x', label='check com p=' + str(p), color=colors[p - 1])
+        ax.loglog(allDofs[iStudy], allVecValChecks[iStudy], '--x', label='check acc p=' + str(p), color=colors[p - 1 + 1])
+        #ax.loglog(allDofs[iStudy], allValNegative[iStudy], '-.x', label='check neg p=' + str(p), color=colors[p - 1])
+        #ax.loglog(allDofs[iStudy], allValComplex[iStudy], ':x', label='check com p=' + str(p), color=colors[p - 1])
+        ax.loglog(allDofs[iStudy], allMinMass[iStudy], '-*', label='min mass p=' + str(p), color=colors[p - 1 + 2])
+        ax.loglog(allDofs[iStudy], allFirstElementM[iStudy], '-*', label='first element p=' + str(p), color=colors[p - 1 + 3])
+        #ax.loglog(allDofs[iStudy], float32data, '-*', label='float32 p=' + str(p), color=colors[p - 1 + 4])
+        ax.loglog(allDofs[iStudy], allCondM[iStudy], '-*', label='cond M p=' + str(p), color=colors[p - 1 + 5])
+        ax.loglog(allDofs[iStudy], allCondK[iStudy], '-*', label='cond K p=' + str(p), color=colors[p - 1 + 6])
 
         iStudy += 1
 

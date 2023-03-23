@@ -16,11 +16,11 @@ if 'config' not in locals():
         extra=0,
 
         # method
-        #ansatzType='Lagrange',
-        ansatzType='Spline',
+        ansatzType='Lagrange',
+        #ansatzType='Spline',
         #ansatzType = 'InterpolatorySpline',
-        n=20,
-        p=3,
+        n=10000,
+        p=1,
 
         continuity='p-1',
         mass='RS',
@@ -35,7 +35,7 @@ if 'config' not in locals():
 
 L = config.right - 2*config.extra
 tMax = L*10*2
-nt = 120000
+nt = 12000000
 #nt = 120000
 dt = tMax / nt
 
@@ -52,16 +52,31 @@ print("Corrected time step size is %e" % dt)
 
 # apply initial conditions
 u0, u1 = fem1d.sources.applyConstantVelocityInitialConditions(study.ansatz, dt, 0.1)
+
 evalNodes = np.linspace(study.grid.left + config.extra, study.grid.right - config.extra, study.ansatz.nDof())
 
+left = study.grid.left + config.extra
+right = study.grid.right - config.extra
+#evalNodes = np.array([left, left+1e-6, right-1e-6, right])
+
 # solve
-times, u, fullU, evalU, iMat = study.runCentralDifferenceMethod2(dt, nt, u0, u1, evalNodes)
+times, u, fullU, evalU, iMat = study.runCentralDifferenceMethod3(dt, nt, u0, u1, evalNodes)
 
 title = config.ansatzType + " n=%d" % config.n + " p=%d" % config.p + " " + config.mass
 fileBaseName = fem1d.getFileBaseNameAndCreateDir("results/example_timedomain_impact/", title.replace(' ', '_'))
 fem1d.writeColumnFile(fileBaseName + '.dat', (times, u[:, 0], u[:, -1]))
 
 fem1d.plot(times, [u[:, -1], u[:, 0]])
+
+
+def plotBar():
+    positions = []
+    n = evalNodes.size
+    for i in range(n):
+        idx = int((evalNodes.size-1) * i / (n-1))
+        print(idx)
+        positions.append(evalNodes[idx] + evalU[:, idx])
+    fem1d.plot(times, positions)
 
 
 def postProcess(animationSpeed=4):

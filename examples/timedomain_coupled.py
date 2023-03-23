@@ -4,7 +4,7 @@ import matplotlib.animation as anim
 import scipy.sparse
 import scipy.sparse.linalg
 
-import fem1d
+from context import fem1d
 
 # problem
 left = 0
