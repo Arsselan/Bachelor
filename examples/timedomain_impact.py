@@ -35,7 +35,7 @@ if 'config' not in locals():
 
 L = config.right - 2*config.extra
 tMax = L*10*2
-nt = 12000000
+nt = 1200000
 #nt = 120000
 dt = tMax / nt
 
@@ -53,20 +53,20 @@ print("Corrected time step size is %e" % dt)
 # apply initial conditions
 u0, u1 = fem1d.sources.applyConstantVelocityInitialConditions(study.ansatz, dt, 0.1)
 
-evalNodes = np.linspace(study.grid.left + config.extra, study.grid.right - config.extra, study.ansatz.nDof())
+#evalNodes = np.linspace(study.grid.left + config.extra, study.grid.right - config.extra, study.ansatz.nDof())
 
 left = study.grid.left + config.extra
 right = study.grid.right - config.extra
-#evalNodes = np.array([left, left+1e-6, right-1e-6, right])
+evalNodes = np.array([left, left+1e-6, 0.5*(right-left), right-1e-6, right])
 
 # solve
-times, u, fullU, evalU, iMat = study.runCentralDifferenceMethod3(dt, nt, u0, u1, evalNodes)
+times, u, fullU, evalU, iMat = study.runCentralDifferenceMethod4(dt, nt, u0, u1, evalNodes)
 
 title = config.ansatzType + " n=%d" % config.n + " p=%d" % config.p + " " + config.mass
-fileBaseName = fem1d.getFileBaseNameAndCreateDir("results/example_timedomain_impact/", title.replace(' ', '_'))
-fem1d.writeColumnFile(fileBaseName + '.dat', (times, u[:, 0], u[:, -1]))
+fileBaseName = fem1d.getFileBaseNameAndCreateDir("results/example_timedomain_impact_reference/", title.replace(' ', '_'))
+fem1d.writeColumnFile(fileBaseName + '.dat', (times, evalU[:, 0], evalU[:, -1]))
 
-fem1d.plot(times, [u[:, -1], u[:, 0]])
+fem1d.plot(times, [evalU[:, -1], evalU[:, 0]])
 
 
 def plotBar():

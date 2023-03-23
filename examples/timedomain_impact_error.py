@@ -7,7 +7,9 @@ from scipy.fftpack import fft
 
 from context import fem1d
 
-ref = np.loadtxt("results/example_timedomain_impact/Lagrange_n=1000_p=2_RS.dat")
+#ref = np.loadtxt("results/example_timedomain_impact/Lagrange_n=1000_p=2_RS.dat")
+ref = np.loadtxt("results/example_timedomain_impact_reference/reference3.dat")
+ref = np.delete(ref, -1, 0)
 
 dt = 2e-4
 nt = 120000
@@ -26,6 +28,8 @@ def computeErrors(ansatzType, p, nValues):
         title = ansatzType + "_n=%d" % n + "_p=%d" % p + "_" + "RS.dat"
         fileName = "results/example_timedomain_impact/" + title
         data = np.loadtxt(fileName)
+        data = np.delete(data, 0, 0)
+        data = np.delete(data, 0, 0)
         error = np.linalg.norm(dt*(ref[:, 1] - data[:, 1]))
         errors.append(error)
         if ansatzType == "Lagrange":
