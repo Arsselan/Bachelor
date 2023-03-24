@@ -1,163 +1,68 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.animation as anim
 import scipy.sparse
 import scipy.sparse.linalg
-import bspline
 
-from waves1d import *
+from context import fem1d
 
-# problem
-left = 0
-right = 1.2
-extra = 0.119
+config = fem1d.StudyConfig(
+    # problem
+    left=0,
+    right=1.2,
+    extra=0.1,
 
-# method
-depth = 40
-p = 5
-n = 120*p
+    # method
+    ansatzType='Spline',
+    n=24,
+    mass='RS',
 
-# analysis
-nw = n
-indices = np.linspace(0, nw, nw + 1)
-wExact = (indices * np.pi) / (1.2 - 2 * extra)
+    #ansatzType='InterpolatorySpline',
+    #ansatzType='Lagrange',
+    #n=12,
+    #mass='HRZ',
 
+    p=2,
 
-def runStudy(n, p, extra, spectral, mass):
-    print("Running study...")
-    # create grid and domain
-    grid = UniformGrid(left, right, n)
+    continuity='1',
+    #mass='CON',
 
-    def alpha(x):
-        if left + extra <= x <= right - extra:
-            return 1.0
-        return 0
+    depth=15,
+    stabilize=1e-8,
+    spectral=False,
+    dual=False,
+    smartQuadrature=False,
 
-    domain = Domain(alpha)
+    source=fem1d.sources.NoSource()
+)
 
-    # create ansatz and quadrature
-    ansatz = createAnsatz(ansatzType, continuity, p, grid)
+# study
+eigenvalue = 6
 
-    gaussPointsM = GLL(p + 1)
-    quadratureM = SpaceTreeQuadrature(grid, gaussPointsM, domain, depth)
+# title
+title = config.ansatzType
+title += ' ' + config.continuity
+title += ' ' + config.mass
+title += ' a=%2.1e' % config.stabilize
+title += ' d=' + str(config.extra)
 
-    gaussPointsK = np.polynomial.legendre.leggauss(p + 1)
-    quadratureK = SpaceTreeQuadrature(grid, gaussPointsK, domain, depth)
+fileBaseName = fem1d.getFileBaseNameAndCreateDir("results/example_spectrum/", title.replace(' ', '_'))
 
-    # create system
-    if spectral:
-        system = TripletSystem.fromTwoQuadratures(ansatz, quadratureM, quadratureK)
-    else:
-        system = TripletSystem.fromOneQuadrature(ansatz, quadratureK)
+study = fem1d.EigenvalueStudy(config)
 
-    system.findZeroDof(0)
-    #system.findZeroDof(-1e60, [0, system.nDof()-1])
-    if len(system.zeroDof) > 0:
-        print("Warning! There were %d zero dof found: " % len(system.zeroDof) + str(system.zeroDof))
+study.runDense(False, True)
 
-    # solve sparse
-    M, K, MHRZ, MRS = system.createSparseMatrices(returnHRZ=True, returnRS=True)
+nw = study.w.size
 
-    if mass == 'CON':
-        # w = scipy.sparse.linalg.eigs(K, K.shape[0] - 2, M, which='SM', return_eigenvectors=False)
-        w = scipy.linalg.eigvals(K.toarray(), M.toarray())
-    elif mass == 'HRZ':
-        # w = scipy.sparse.linalg.eigs(K, K.shape[0] - 2, MHRZ, which='SM', return_eigenvectors=False)
-        w = scipy.linalg.eigvals(K.toarray(), MHRZ.toarray())
-    elif mass == 'RS':
-        # w = scipy.sparse.linalg.eigs(K, K.shape[0] - 2, MRS, which='SM', return_eigenvectors=False)
-        w = scipy.linalg.eigvals(K.toarray(), MRS.toarray())
-    else:
-        print("Error! Choose mass 'CON' or 'HRZ' or 'RS'")
+indices = np.linspace(0, nw-1, nw)
 
-    if np.linalg.norm(np.imag(w)) > 0:
-        print("Warning! There were imaginary eigenvalues: " + str(w))
+wExact = (indices * np.pi) / (1.2 - 2 * config.extra)
 
-    # compute frequencies
-    w = np.real(w)
-    w = np.abs(w)
-    w = np.sqrt(w + 0j)
-    w = np.sort(w)
+w = []
+for i in range(nw):
+    wi, idx = fem1d.findEigenvalue(study.w, "nearest", i, wExact[i])
+    w.append(wi)
 
-    if np.linalg.norm(np.imag(w)) > 0:
-        print("Warning! There were negative eigenvalues: " + str(w))
+fem1d.plot(indices, [wExact, w, study.w], ["exact", "nearest", "number"])
 
-    return np.real(w), system.nDof(), system.zeroDof
+fem1d.writeColumnFile(fileBaseName + ".dat", [indices, wExact, w, study.w])
 
-
-def createLegend():
-    leg = ansatzType + ' C' + str(continuity)
-    leg += ' ' + mass
-    leg += ' d=' + str(extra)
-    leg += ' dof=' + str(dof-len(zeroDof)) + " / " + str(dof)
-    return leg
-
-
-def plotStudy(lineStyle):
-    global wNum
-    #wNum = wNum[0:nw + 1]
-    print(wNum)
-    indices = np.linspace(0, len(wNum-1), len(wNum))
-    wExact = (indices * np.pi) / (1.2 - 2 * extra)
-    ax1.plot(indices, wNum, lineStyle, label=createLegend())
-    ax2.plot(indices[1:], wNum[1:] / wExact[1:], '--o', label=createLegend())
-
-
-# plot
-figure, (ax1, ax2) = plt.subplots(1, 2)
-ax1.plot(indices, wExact, '-', label='reference')
-ax2.plot(indices[1:], wExact[1:] / wExact[1:], '-', label='reference')
-
-# studies
-ansatzType = 'Lagrange'
-continuity = '0'
-k = eval(continuity)
-mass = 'RS'
-wNum, dof, zeroDof = runStudy(int(n/(p-k)), p, extra, False, mass)
-plotStudy('--o')
-
-
-ansatzType = 'Spline'
-continuity = 'p-1'
-k = eval(continuity)
-mass = 'RS'
-wNum, dof, zeroDof = runStudy(int(n/(p-k)), p, extra, False, mass)
-plotStudy('--x')
-
-
-ansatzType = 'Lagrange'
-continuity = '0'
-k = eval(continuity)
-mass = 'CON'
-wNum, dof, zeroDof = runStudy(int(n/(p-k)), p, extra, False, mass)
-plotStudy('-o')
-
-
-ansatzType = 'Spline'
-continuity = 'p-1'
-k = eval(continuity)
-mass = 'CON'
-wNum, dof, zeroDof = runStudy(int(n/(p-k)), p, extra, False, mass)
-plotStudy('-x')
-
-
-ansatzType = 'Lagrange'
-continuity = '0'
-k = eval(continuity)
-mass = 'CON'
-wNum, dof, zeroDof = runStudy(int(n/(p-k)), p, extra, True, mass)
-plotStudy('-.+')
-
-ax1.legend()
-ax2.legend()
-
-plt.rcParams['axes.titleweight'] = 'bold'
-
-title = 'Spectrum for p=' + str(p) + ' n=' + str(n) + " d=" + str(extra)
-figure.suptitle(title)
-
-plt.xlabel('eigenvalue index')
-plt.ylabel('eigenvalue ')
-
-plt.savefig('results/' + title.replace(' ', '_') + '.pdf')
-plt.show()

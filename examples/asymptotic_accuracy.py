@@ -19,10 +19,10 @@ config = fem1d.StudyConfig(
 
     continuity='1',
     #mass='CON',
-    #mass='HRZ',
     mass='RS',
+    #mass='RS',
 
-    depth=15,
+    depth=35,
     stabilize=0,
     spectral=False,
     dual=False,
@@ -60,7 +60,7 @@ title += ' ' + config.mass
 title += ' a=%2.1e' % config.stabilize
 title += ' d=' + str(config.extra)
 title += ' ' + eigenvalueSearch
-fileBaseName = fem1d.getFileBaseNameAndCreateDir("results/example_eigenvector_convergence/", title.replace(' ', '_'))
+fileBaseName = fem1d.getFileBaseNameAndCreateDir("results/asymptotic_accuracy/", title.replace(' ', '_'))
 
 # run
 allValues = []
@@ -139,6 +139,8 @@ for p in allPs:
         # fem1d.plot(nodesEval, [vExact, eVector, eVector2, eVector3], ["exact", "nearest", "number", "nearest w"])
 
         MAT = (study.K.toarray() - study.w[wIdx]**2 * study.getMassMatrix().toarray())
+        # MAT = (np.float32(study.K.toarray()) - study.w[wIdx]**2 * np.float32(study.getMassMatrix().toarray()))
+
         VEC = study.v[:, vIdx]
 
         vecValChecks[i] = np.linalg.norm(np.matmul(MAT, VEC))
@@ -151,7 +153,11 @@ for p in allPs:
 
         print("dof = %e, w = %e, eVec = %e, eVal = %e" % (dofs[i], values[i], vecErrors[i], valErrors[i]))
 
-    fem1d.writeColumnFile(fileBaseName + '_p=' + str(p) + '.dat', (dofs, vecErrors))
+    # fileBaseName = fileBaseName + "_float32"
+    fem1d.writeColumnFile(fileBaseName + '_p=' + str(p) + '_vec_errors.dat', (dofs, vecErrors))
+    fem1d.writeColumnFile(fileBaseName + '_p=' + str(p) + '_val_errors.dat', (dofs, valErrors))
+    fem1d.writeColumnFile(fileBaseName + '_p=' + str(p) + '_negative_complex.dat', (valNegative, valComplex))
+    fem1d.writeColumnFile(fileBaseName + '_p=' + str(p) + '_checks.dat', (dofs, vecValChecks, minMass, firstElementM, condM, condK))
     allValues.append(values)
     allValErrors.append(valErrors)
     allVecErrors.append(vecErrors)
@@ -174,8 +180,6 @@ def postProcess():
     #    ax.set_ylim(1e-8, 10)
     #else:
     #    ax.set_ylim(1e-11, 10)
-
-    float32data = np.loadtxt("error_p4_float32.dat")
 
     iStudy = 0
     for p in allPs:

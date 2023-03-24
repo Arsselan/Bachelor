@@ -1,14 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
-import matplotlib.animation as anim
-import scipy.sparse
-import scipy.sparse.linalg
 
-from waves1d import *
-from fem1d.studies import *
+from context import fem1d
 
-config = StudyConfig(
+config = fem1d.StudyConfig(
     # problem
     left=0,
     right=1.2,
@@ -24,9 +19,12 @@ config = StudyConfig(
     mass='HRZ',
 
     depth=35,
-    stabilize=1e-16,
+    stabilize=0,
     spectral=False,
     dual=False,
+    smartQuadrature=False,
+
+    source=fem1d.sources.NoSource()
   )
 
 # study
@@ -38,7 +36,9 @@ else:
     nh = 240  # immersed
 
 
-eigenvalueSearch = 'nearest'
+# eigenvalueSearch = 'nearest'
+eigenvalueSearch = 'number'
+
 wExact = (eigenvalue * np.pi) / (1.2 - 2 * config.extra)
 
 
@@ -50,7 +50,7 @@ title += ' a=%2.1e' % config.stabilize
 title += ' d=' + str(config.extra)
 title += ' ' + eigenvalueSearch
 
-fileBaseName = getFileBaseNameAndCreateDir("results/example_eigenvalue_convergence/", title.replace(' ', '_'))
+fileBaseName = fem1d.getFileBaseNameAndCreateDir("results/example_eigenvalue_convergence/", title.replace(' ', '_'))
 
 # run
 allValues = []
@@ -81,7 +81,7 @@ for p in allPs:
 
         config.n = n
         config.p = p
-        study = EigenvalueStudy(config)
+        study = fem1d.EigenvalueStudy(config)
         if config.ansatzType == 'Lagrange' and config.mass == 'RS':
             study.runDense(sort=True)
         else:
@@ -90,11 +90,11 @@ for p in allPs:
         # dofs[i] = study.M.shape[0]
         dofs[i] = study.system.nDof()
 
-        values[i] = findEigenvalue(study.w, eigenvalueSearch, eigenvalue, wExact)
+        values[i], idx = fem1d.findEigenvalue(study.w, eigenvalueSearch, eigenvalue, wExact)
         errors[i] = np.abs(values[i] - wExact) / wExact
         print("dof = %e, w = %e, e = %e" % (dofs[i], values[i], errors[i]))
 
-    writeColumnFile(fileBaseName + '_p=' + str(p) + '.dat', (dofs, errors))
+    fem1d.writeColumnFile(fileBaseName + '_p=' + str(p) + '.dat', (dofs, errors))
     allValues.append(values)
     allErrors.append(errors)
     allDofs.append(dofs)

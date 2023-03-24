@@ -24,35 +24,47 @@ def computeScipySpectrum(u):
 def computeErrors(ansatzType, p, nValues):
     dofs = []
     errors = []
+    errorOverTimeReturned = []
+    dofsOverTimeReturned = []
     for n in nValues:
         title = ansatzType + "_n=%d" % n + "_p=%d" % p + "_" + "RS.dat"
         fileName = "results/example_timedomain_impact/" + title
         data = np.loadtxt(fileName)
         data = np.delete(data, 0, 0)
         data = np.delete(data, 0, 0)
-        error = np.linalg.norm(dt*(ref[:, 1] - data[:, 1]))
+        errorOverTime = (ref[:, 1] - data[:, 1])
+        print(errorOverTime.shape)
+        error = np.linalg.norm(dt*errorOverTime)
         errors.append(error)
         if ansatzType == "Lagrange":
             dof = p*n+1
         elif ansatzType == "Spline":
             dof = n + p
         dofs.append(dof)
+        if (n == 200 and p == 3) or (n == 200 and p == 2):
+            fem1d.writeColumnFile(fileName + "ot", [ref[:, 0], errorOverTime])
+            print("STORING!")
         print(title + "Dof: %d, Error: %e" % (dof, error))
-    return dofs, errors
+    return dofs, errors, errorOverTimeReturned
 
 
 def computeConvergence():
-    dofsLagrange2, errorLagrange2 = computeErrors("Lagrange", 2, [12, 25, 50, 100, 200, 400, 800])
-    dofsSpline2, errorSpline2 = computeErrors("Spline", 2, [25, 50, 100, 200, 400, 800, 1600])
+    dofsLagrange2, errorLagrange2, errorOverTimeLagrange2 = computeErrors("Lagrange", 2, [12, 25, 50, 100, 200, 400, 800])
+    dofsSpline2, errorSpline2, errorOverTimeSpline2 = computeErrors("Spline", 2, [25, 50, 100, 200, 400, 800, 1600])
 
-    dofsLagrange3, errorLagrange3 = computeErrors("Lagrange", 3, [6, 12, 25, 50, 100, 200, 400])
-    dofsSpline3, errorSpline3 = computeErrors("Spline", 3, [25, 50, 100, 200, 400, 800, 1600])
+    dofsLagrange3, errorLagrange3, errorOverTimeLagrange3 = computeErrors("Lagrange", 3, [6, 12, 25, 50, 100, 200, 400])
+    dofsSpline3, errorSpline3, errorOverTimeSpline3 = computeErrors("Spline", 3, [25, 50, 100, 200, 400, 800, 1600])
 
     plt.loglog(dofsLagrange2, errorLagrange2, "-o", label="Lagrange, p=2")
     plt.loglog(dofsSpline2, errorSpline2, "-o", label="Spline, p=2")
 
     plt.loglog(dofsLagrange3, errorLagrange3, "-o", label="Lagrange, p=3")
     plt.loglog(dofsSpline3, errorSpline3, "-o", label="Spline, p=3")
+
+    fem1d.writeColumnFile("results/example_timedomain_impact/convergence_lagrange_p2.dat", [dofsLagrange2, errorLagrange2])
+    fem1d.writeColumnFile("results/example_timedomain_impact/convergence_lagrange_p3.dat", [dofsLagrange3, errorLagrange3])
+    fem1d.writeColumnFile("results/example_timedomain_impact/convergence_splines_p2.dat", [dofsSpline2, errorSpline2])
+    fem1d.writeColumnFile("results/example_timedomain_impact/convergence_splines_p3.dat", [dofsSpline3, errorSpline3])
 
     plt.legend()
 

@@ -116,7 +116,8 @@ class EigenvalueStudy:
         if computeEigenvectors:
             self.w, self.v = scipy.linalg.eig(self.K.toarray(), M.toarray(), right=True)
             # self.w, self.v = scipy.linalg.eigh(self.K.toarray(), M.toarray())
-            # self.w, self.v = scipy.linalg.eigh(np.float32(self.K.toarray()), np.float32(M.toarray()))
+            # self.w, self.v = scipy.linalg.eig(np.float32(self.K.toarray()), np.float32(M.toarray()), right=True)
+            # self.w, self.v = scipy.linalg.eig(np.float32(self.K.toarray()), np.float32(M.toarray()))
         else:
             self.w = scipy.linalg.eigvals(self.K.toarray(), self.M.toarray())
 
