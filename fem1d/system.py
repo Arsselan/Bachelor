@@ -40,8 +40,11 @@ class TripletSystem:
         F = np.zeros((ansatz.nDof(),))
 
         minMass = float('inf')
-        minMassElement = 0
+        # onepercent = int(n / 100)
         for iElement in range(n):
+            # if iElement % onepercent == 0:
+            #    print("%d / %d" % (iElement, n))
+
             lm = ansatz.locationMap(iElement)
             Me = np.zeros((nShapesPerElement, nShapesPerElement))
             Ke = np.zeros((nShapesPerElement, nShapesPerElement))

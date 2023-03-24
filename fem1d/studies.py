@@ -163,10 +163,14 @@ class EigenvalueStudy:
 
     def computeLargestEigenvalueSparse(self):
         M = self.getMassMatrix()
-        self.w = scipy.sparse.linalg.eigs(self.K, 1, self.M, which='LM', return_eigenvectors=False)
-
+        self.w = scipy.sparse.linalg.eigs(self.K, 1, M, which='LM', return_eigenvectors=False)
         self.w = np.sqrt(np.abs(self.w))
+        return max(self.w)
 
+    def computeLargestEigenvalueDense(self):
+        M = self.getMassMatrix()
+        self.w = scipy.linalg.eigvals(self.K.toarray(), M.toarray())
+        self.w = np.sqrt(np.abs(self.w))
         return max(self.w)
 
     def runCentralDifferenceMethod(self, dt, nt, u0, u1, evalPos):

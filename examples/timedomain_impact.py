@@ -19,7 +19,7 @@ if 'config' not in locals():
         ansatzType='Lagrange',
         #ansatzType='Spline',
         #ansatzType = 'InterpolatorySpline',
-        n=10000,
+        n=100000,
         p=1,
 
         continuity='p-1',
@@ -35,7 +35,7 @@ if 'config' not in locals():
 
 L = config.right - 2*config.extra
 tMax = L*10*2
-nt = 1200000
+nt = 12000000
 #nt = 120000
 dt = tMax / nt
 

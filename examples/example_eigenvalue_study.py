@@ -5,29 +5,29 @@ import matplotlib.animation as anim
 import scipy.sparse
 import scipy.sparse.linalg
 
-from waves1d import *
+from context import fem1d
 
-from fem1d.studies import *
-
-config = StudyConfig(
+config = fem1d.StudyConfig(
     # problem
     left=0,
     right=1.2,
     extra=0.0,
 
     # method
-    # ansatzType = 'Lagrange'
+    ansatzType='Spline',
+    # ansatzType='Lagrange',
     # ansatzType = 'InterpolatorySpline'
     n=12,
-    p=3,
-    ansatzType='Spline',
-    continuity='p-1',
+    p=5,
+    continuity='2',
     mass='CON',
 
     depth=40,
     spectral=False,
     dual=False,
-    stabilize=0,
+    stabilize=1e-8,
+    smartQuadrature=False,
+    source=fem1d.sources.NoSource()
   )
 
 axLimitY = 500
@@ -35,7 +35,7 @@ axLimitY = 500
 
 
 # extra values
-ne = 101
+ne = 11
 extras = list(np.linspace(0, 0.099, ne)) + list(np.linspace(0.1, 0.199, ne)) + list(np.linspace(0.2, 0.299, ne)) + [
     0.3] + list(np.linspace(0.3, 0.399, ne)) + [0.4]
 ne = len(extras)
@@ -43,7 +43,7 @@ ne = len(extras)
 extras = list(np.array(extras))
 
 # prepare result data
-maxP = 4
+maxP = 6
 res = np.zeros((ne, maxP + 1))
 res[:, 0] = extras
 
@@ -54,17 +54,16 @@ for p in range(1, maxP + 1):
     for i in range(ne):
         config.extra = extras[i]
         config.p = p
-        study = EigenvalueStudy(config)
-        #maxw[i] = study.runDense()
-        #maxw[i] = study.runSparse()
-        maxw[i] = study.computeLargestEigenvalueSparse()
+        study = fem1d.EigenvalueStudy(config)
+        #maxw[i] = study.computeLargestEigenvalueSparse()
+        maxw[i] = study.computeLargestEigenvalueDense()
 
         print("e = %e, wmax = %e" % (extras[i], maxw[i]))
     res[:, p] = maxw
 
 # save result
 title = config.ansatzType + ' C' + str(config.continuity) + ' ' + config.mass + ' ' + str(config.stabilize)
-fileBaseName = getFileBaseNameAndCreateDir("results/example_eigenvalue_study/", title.replace(' ', '_'))
+fileBaseName = fem1d.getFileBaseNameAndCreateDir("results/example_eigenvalue_study/", title.replace(' ', '_'))
 np.savetxt(fileBaseName + '.dat', res)
 
 
