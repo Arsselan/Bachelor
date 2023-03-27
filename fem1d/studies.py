@@ -388,6 +388,69 @@ class EigenvalueStudy:
 
         return times, u, fullU, evalU, iMat
 
+    def runCentralDifferenceMethod5(self, dt, nt, u0, u1, evalPos):
+        M = self.getMassMatrix()
+
+        # prepare result arrays
+        u = np.zeros((3, M.shape[0]))
+        fullU = np.zeros((3, self.ansatz.nDof()))
+        evalU = np.zeros((nt + 1, len(evalPos)))
+
+        times = np.zeros(nt + 1)
+
+        # compute interpolation matrix
+        iMat = self.ansatz.interpolationMatrix(evalPos)
+
+        # compute Neumann vectors
+        leftF = self.system.getReducedVector(fem1d.createNeumannVector(self.system, [evalPos[0]], [1], [1]))
+        rightF = self.system.getReducedVector(fem1d.createNeumannVector(self.system, [evalPos[-1]], [1], [1]))
+        leftFactor = 0
+        rightFactor = 0
+
+        # set initial conditions
+        times[0] = -dt
+        times[1] = 0.0
+        u[0] = self.system.getReducedVector(u0)
+        u[1] = self.system.getReducedVector(u1)
+        for i in range(2):
+            fullU[i] = self.system.getFullVector(u[i])
+            evalU[i] = iMat * fullU[i]
+
+        print("Factorization ... ", flush=True)
+        factorized = scipy.sparse.linalg.splu(M)
+
+        print("Time integration ... ", flush=True)
+        onePercent = int(nt / 100)
+        for i in range(2, nt + 1):
+            if i % onePercent == 0:
+                print("%d / %d" % (i, nt))
+
+            # solve
+            times[i] = i * dt
+            u[2] = factorized.solve(M * (2 * u[1] - u[0]) + dt ** 2 * (leftFactor * leftF + rightFactor * rightF - self.K * u[1]))
+
+            # evaluate solution
+            fullU[2] = self.system.getFullVector(u[2])
+            evalU[i] = iMat * fullU[2]
+
+            # check penetration
+            penalty = 1e3
+            if evalU[i][-1] > 0.1+self.config.extra and evalU[i][-1] - evalU[i-1][-1] > 0:
+                rightFactor = penalty * (0.1+self.config.extra - evalU[i][-1])
+            else:
+                rightFactor = 0
+
+            if evalU[i][0] < -0.1-self.config.extra and evalU[i][0] - evalU[i-1][0] < 0:
+                leftFactor = penalty * (-0.1-self.config.extra - evalU[i][0])
+            else:
+                leftFactor = 0
+
+            # update solution vectors
+            u[0] = u[1]
+            u[1] = u[2]
+
+        return times, u, fullU, evalU, iMat
+
 
 def findEigenvalue(w, eigenvalueSearch, eigenvalue, wExact):
     if eigenvalueSearch == 'nearest':

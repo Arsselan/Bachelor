@@ -13,14 +13,14 @@ if 'config' not in locals():
         # problem
         left=0,
         right=1.2,
-        extra=0,
+        extra=0.05,
 
         # method
-        #ansatzType='Lagrange',
-        ansatzType='Spline',
+        ansatzType='Lagrange',
+        #ansatzType='Spline',
         #ansatzType = 'InterpolatorySpline',
-        n=1000,
-        p=4,
+        n=27,
+        p=3,
 
         continuity='p-1',
         mass='CON',
@@ -52,14 +52,13 @@ print("Corrected time step size is %e" % dt)
 # apply initial conditions
 u0, u1 = fem1d.sources.applyConstantVelocityInitialConditions(study.ansatz, dt, 0.1)
 
-#evalNodes = np.linspace(study.grid.left + config.extra, study.grid.right - config.extra, study.ansatz.nDof())
-
+# set evaluation nodes
 left = study.grid.left + config.extra
 right = study.grid.right - config.extra
 evalNodes = np.array([left, left+1e-6, 0.5*(right-left), right-1e-6, right])
 
 # solve
-times, u, fullU, evalU, iMat = study.runCentralDifferenceMethod4(dt, nt, u0, u1, evalNodes)
+times, u, fullU, evalU, iMat = study.runCentralDifferenceMethod5(dt, nt, u0, u1, evalNodes)
 
 title = config.ansatzType + " n=%d" % config.n + " p=%d" % config.p + " " + config.mass
 fileBaseName = fem1d.getFileBaseNameAndCreateDir("results/example_timedomain_impact/", title.replace(' ', '_'))

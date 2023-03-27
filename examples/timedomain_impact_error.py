@@ -8,11 +8,17 @@ from scipy.fftpack import fft
 from context import fem1d
 
 #ref = np.loadtxt("results/example_timedomain_impact/Lagrange_n=1000_p=2_RS.dat")
-ref = np.loadtxt("results/example_timedomain_impact_reference/reference3.dat")
-ref = np.delete(ref, -1, 0)
+#ref = np.loadtxt("results/example_timedomain_impact_reference/reference3.dat")
+#ref = np.loadtxt("results/example_timedomain_impact_reference/lagrange_n100000_p1_rs_reduced2.dat")
+ref = np.loadtxt("results/example_timedomain_impact/Spline_n=1000_p=4_CON.dat")
+
+ref = np.delete(ref, 0, 0)
+ref = np.delete(ref, 0, 0)
 
 dt = 2e-4
 nt = 120000
+
+print("Reference first / last time: %e / %e" % (ref[0, 0], ref[-1, 0]))
 
 
 def computeScipySpectrum(u):
@@ -25,15 +31,15 @@ def computeErrors(ansatzType, p, nValues):
     dofs = []
     errors = []
     errorOverTimeReturned = []
-    dofsOverTimeReturned = []
     for n in nValues:
         title = ansatzType + "_n=%d" % n + "_p=%d" % p + "_" + "RS.dat"
         fileName = "results/example_timedomain_impact/" + title
         data = np.loadtxt(fileName)
         data = np.delete(data, 0, 0)
         data = np.delete(data, 0, 0)
+        print("Data first / last time: %e / %e" % (data[0, 0], data[-1, 0]))
+
         errorOverTime = (ref[:, 1] - data[:, 1])
-        print(errorOverTime.shape)
         error = np.linalg.norm(dt*errorOverTime)
         errors.append(error)
         if ansatzType == "Lagrange":
