@@ -1,14 +1,8 @@
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.animation as anim
-import scipy.sparse
-import scipy.sparse.linalg
-
-import sources
-from fem1d.studies import *
+from context import fem1d
 
 if 'config' not in locals():
-    config = StudyConfig(
+    config = fem1d.StudyConfig(
         # problem
         left=0,
         right=1.2,
@@ -28,12 +22,12 @@ if 'config' not in locals():
         dual=False,
         stabilize=0,
         smartQuadrature=False,
-        source=sources.NoSource()
+        source=fem1d.sources.NoSource()
     )
 
 L = config.right - 2*config.extra
 tMax = L
-#nt = 1200*20
+# nt = 1200*20
 nt = 120000
 dt = tMax / nt
 
@@ -42,26 +36,26 @@ temp = config.extra
 for i in range(0):
     config.extra = i / 10 * 1.2/120
     print("extra = %e" % config.extra)
-    study = EigenvalueStudy(config)
+    study = fem1d.EigenvalueStudy(config)
 config.extra = temp
-study = EigenvalueStudy(config)
+study = fem1d.EigenvalueStudy(config)
 
 # compute critical time step size
 w = study.computeLargestEigenvalueSparse()
 critDeltaT = 2 / abs(w)
 print("Critical time step size is %e" % critDeltaT)
 print("Chosen time step size is %e" % dt)
-dt = correctTimeStepSize(dt, tMax, critDeltaT)
+dt = fem1d.correctTimeStepSize(dt, tMax, critDeltaT)
 print("Corrected time step size is %e" % dt)
 
 # solve sparse
-u0, u1 = sources.applyGaussianInitialConditions(study.ansatz, dt, -0.6, config.stabilize)
+u0, u1 = fem1d.sources.applyGaussianInitialConditions(study.ansatz, dt, -0.6, config.stabilize)
 evalNodes = np.linspace(study.grid.left + config.extra, study.grid.right - config.extra, study.ansatz.nDof())
 u, fullU, evalU, iMat = study.runCentralDifferenceMethod(dt, nt, u0, u1, evalNodes)
 
 
 def postProcess(animationSpeed=4):
-    postProcessTimeDomainSolution(study, evalNodes, evalU, tMax, nt, animationSpeed)
+    fem1d.postProcessTimeDomainSolution(study, evalNodes, evalU, tMax, nt, animationSpeed)
 
 
 def getResults():
