@@ -1,11 +1,10 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from waves1d import *
-
 #path = "results/time_domain_study_extra"
 #path = "results/time_domain_study_extra_not_stabilized"
-path = "results/time_domain_study_extra_stabilized_1e-8"
+#path = "results/time_domain_study_extra_stabilized_1e-8"
+path = "results/timedomain_wave_reflection_study_0"
 
 names = [
     "Spline_CON",

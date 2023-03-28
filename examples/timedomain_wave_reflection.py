@@ -6,38 +6,34 @@ if 'config' not in locals():
         # problem
         left=0,
         right=1.2,
-        extra=0.8*1.2/120,
+        # extra=0.8*1.2/120,
+        extra=0.01495,
 
         # method
         ansatzType='Lagrange',
         # ansatzType = 'InterpolatorySpline',
-        n=120,
-        p=2,
+        n=80,
+        p=3,
         # ansatzType='Spline',
         continuity='p-1',
         mass='CON',
 
-        depth=35,
+        depth=15,
         spectral=False,
         dual=False,
         stabilize=0,
-        smartQuadrature=False,
+        smartQuadrature=True,
         source=fem1d.sources.NoSource()
     )
 
 L = config.right - 2*config.extra
 tMax = L
 # nt = 1200*20
-nt = 120000
+# nt = 12000
+nt = 1
 dt = tMax / nt
 
 # create study
-temp = config.extra
-for i in range(0):
-    config.extra = i / 10 * 1.2/120
-    print("extra = %e" % config.extra)
-    study = fem1d.EigenvalueStudy(config)
-config.extra = temp
 study = fem1d.EigenvalueStudy(config)
 
 # compute critical time step size
@@ -45,7 +41,7 @@ w = study.computeLargestEigenvalueSparse()
 critDeltaT = 2 / abs(w)
 print("Critical time step size is %e" % critDeltaT)
 print("Chosen time step size is %e" % dt)
-dt = fem1d.correctTimeStepSize(dt, tMax, critDeltaT)
+dt, nt = fem1d.correctTimeStepSize(dt, tMax, critDeltaT)
 print("Corrected time step size is %e" % dt)
 
 # solve sparse
@@ -60,4 +56,4 @@ def postProcess(animationSpeed=4):
 
 def getResults():
     error = np.linalg.norm(evalU[1] - evalU[-1])
-    return w, error
+    return w, error, tMax, dt, nt

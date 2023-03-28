@@ -507,7 +507,7 @@ def correctTimeStepSize(dt, tMax, critDeltaT, safety=0.9):
         dt = critDeltaT * safety
         nt = int(tMax / dt + 0.5)
         dt = tMax / nt
-    return dt
+    return dt, nt
 
 
 # Plot animation
@@ -536,8 +536,8 @@ def postProcessTimeDomainSolution(study, evalNodes, evalU, tMax, nt, animationSp
     def prepareFrame(i):
         step = int(round(i / tMax * nt))
         plt.title(title + " time %3.2e step %d" % (i, step))
-        #line2.set_ydata(evalU[step])
-        line2.set_xdata(evalNodes + evalU[step])
+        line2.set_ydata(evalU[step])
+        #line2.set_xdata(evalNodes + evalU[step])
 
     frames = np.linspace(0, tMax, round(tMax * 60 / animationSpeed))
     animation = anim.FuncAnimation(figure, func=prepareFrame, frames=frames, interval=1000 / 60, repeat=False)
