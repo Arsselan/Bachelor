@@ -10,7 +10,7 @@ extras = np.array(extras) * 0.1 * 0.5
 #extras = [5e-3]
 
 n = 240
-p = 3
+p = 2
 
 config = fem1d.StudyConfig(
     # problem
@@ -19,13 +19,13 @@ config = fem1d.StudyConfig(
     extra=0,
 
     # method
-    ansatzType='Lagrange',
+    # ansatzType='Lagrange',
     # ansatzType='InterpolatorySpline',
-    # ansatzType='Spline',
+    ansatzType='Spline',
     n=n,
     p=p,
     continuity='p-1',
-    mass='HRZ',
+    mass='CON',
 
     depth=35,
     spectral=False,
@@ -36,7 +36,7 @@ config = fem1d.StudyConfig(
 )
 
 # masses = ['CON', 'HRZ', 'RS']
-masses = ['HRZ']
+masses = ['RS']
 
 for mass in masses:
     print(mass)
