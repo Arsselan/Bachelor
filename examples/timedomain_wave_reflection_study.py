@@ -19,9 +19,9 @@ config = fem1d.StudyConfig(
     extra=0,
 
     # method
-    # ansatzType='Lagrange',
+    ansatzType='Lagrange',
     # ansatzType='InterpolatorySpline',
-    ansatzType='Spline',
+    # ansatzType='Spline',
     n=n,
     p=p,
     continuity='p-1',
@@ -35,8 +35,8 @@ config = fem1d.StudyConfig(
     source=fem1d.sources.NoSource()
 )
 
-#masses = ['CON', 'HRZ', 'RS']
-masses = ['CON']
+# masses = ['CON', 'HRZ', 'RS']
+masses = ['HRZ']
 
 for mass in masses:
     print(mass)
@@ -92,5 +92,5 @@ for mass in masses:
     title += "_p%d" % config.p
     title += "_n%d" % config.n
     title += "_dof%d" % study.ansatz.nDof()
-    filename = fem1d.getFileBaseNameAndCreateDir("results/timedomain_wave_reflection_study_" + str(config.stabilize) + "/", title)
+    filename = fem1d.getFileBaseNameAndCreateDir("results/timedomain_wave_reflection_study_" + str(config.stabilize) + "/const_dt/", title)
     np.savetxt(filename + ".dat", data)

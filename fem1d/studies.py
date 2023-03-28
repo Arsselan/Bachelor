@@ -503,6 +503,7 @@ def findEigenvector(v, search, index, iMatrix, system, vExact):
 
 
 def correctTimeStepSize(dt, tMax, critDeltaT, safety=0.9):
+    nt = int(tMax/dt + 0.5)
     if dt > critDeltaT * safety:
         dt = critDeltaT * safety
         nt = int(tMax / dt + 0.5)
