@@ -65,6 +65,7 @@ class SmartQuadrature:
         d = x2 - x1
         if d < 1e-14:
             print("Warning! Almost zero cell.")
+            return [], [], []
 
         cuts = []
         for cut in self.knownCuts:

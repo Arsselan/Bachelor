@@ -11,22 +11,22 @@ config = fem1d.StudyConfig(
     extra=0.2,
 
     # method
-    #ansatzType='Spline',
+    ansatzType='Spline',
     #ansatzType='InterpolatorySpline',
-    ansatzType='Lagrange',
+    #ansatzType='Lagrange',
     n=12,
     p=3,
 
-    continuity='1',
+    continuity='p-1',
     #mass='CON',
+    #mass='HRZ',
     mass='RS',
-    #mass='RS',
 
     depth=35,
     stabilize=0,
     spectral=False,
     dual=False,
-    smartQuadrature=False,
+    smartQuadrature=True,
 
     source=fem1d.sources.NoSource()
 )
@@ -112,7 +112,7 @@ for p in allPs:
 
         print("p = %d, n = %d" % (p, n))
 
-        #if n != 93:
+        #if n < 90 or n > 100:
         #    continue
 
         config.n = n
@@ -158,6 +158,8 @@ for p in allPs:
     fem1d.writeColumnFile(fileBaseName + '_p=' + str(p) + '_val_errors.dat', (dofs, valErrors))
     fem1d.writeColumnFile(fileBaseName + '_p=' + str(p) + '_negative_complex.dat', (valNegative, valComplex))
     fem1d.writeColumnFile(fileBaseName + '_p=' + str(p) + '_checks.dat', (dofs, vecValChecks, minMass, firstElementM, condM, condK))
+
+    # fill lists for all in one plot
     allValues.append(values)
     allValErrors.append(valErrors)
     allVecErrors.append(vecErrors)
