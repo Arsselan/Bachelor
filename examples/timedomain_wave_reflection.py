@@ -21,7 +21,7 @@ if 'config' not in locals():
         depth=15,
         spectral=False,
         dual=False,
-        stabilize=1e-8,
+        stabilize=0,
         smartQuadrature=True,
         source=fem1d.sources.NoSource()
     )
