@@ -1,9 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.animation as anim
+
 import scipy.sparse
 import scipy.sparse.linalg
-from waves1d import *
+
+from context import fem1d
 
 # problem
 left = 0
@@ -12,7 +13,7 @@ extra = 0.0
 
 rho = 1.3
 f = 200
-w = 2*np.pi * f
+w = 2 * np.pi * f
 c = 340
 k = w / c
 
@@ -31,7 +32,7 @@ continuity = '0'
 
 print("Running study...")
 # create grid and domain
-grid = UniformGrid(left, right, n)
+grid = fem1d.UniformGrid(left, right, n)
 
 
 def alpha(x):
@@ -40,16 +41,16 @@ def alpha(x):
     return 0
 
 
-domain = Domain(alpha)
+domain = fem1d.Domain(alpha)
 
 # create ansatz and quadrature
-#ansatz = createAnsatz(ansatzType, continuity, p, grid)
-#gllPoints = gll.computeGllPoints(p + 1)
-ansatz = LagrangeAnsatz(grid, np.linspace(-1, 1, p+1))
+# ansatz = createAnsatz(ansatzType, continuity, p, grid)
+# gllPoints = gll.computeGllPoints(p + 1)
+ansatz = fem1d.LagrangeAnsatz(grid, np.linspace(-1, 1, p + 1))
 
 gaussPoints = np.polynomial.legendre.leggauss(p + 1)
-quadrature = SpaceTreeQuadrature(grid, gaussPoints, domain, depth)
-system = TripletSystem.fromOneQuadrature(ansatz, quadrature)
+quadrature = fem1d.SpaceTreeQuadrature(grid, gaussPoints, domain, depth)
+system = fem1d.TripletSystem.fromOneQuadrature(ansatz, quadrature)
 
 system.findZeroDof(0)
 if len(system.zeroDof) > 0:
@@ -60,7 +61,7 @@ print("Integration...")
 M, K = system.createSparseMatrices()
 
 print("Factorization...")
-factorized = scipy.sparse.linalg.splu(-k**2 * M + K)
+factorized = scipy.sparse.linalg.splu(-k ** 2 * M + K)
 
 print("Solving...")
 rhs = np.zeros(M.shape[0])
@@ -100,11 +101,10 @@ for idx in range(nDof):
     vectors[:, idx] = vectors[:, idx] / np.real(vectors[-1, idx])
 
 title = ansatzType + " n=%d p=%d" % (n, p)
-fileBaseName = getFileBaseNameAndCreateDir("results/example_helmholtz/", title.replace(' ', '_'))
+fileBaseName = fem1d.getFileBaseNameAndCreateDir("results/example_helmholtz/", title.replace(' ', '_'))
 
 np.savetxt(fileBaseName + "_values.dat", values)
 np.savetxt(fileBaseName + "_vectors.dat", vectors)
-
 
 np.savetxt(fileBaseName + "_nodes.dat", nodes)
 np.savetxt(fileBaseName + "_vectors_abs.dat", np.abs(vectors))
@@ -119,7 +119,7 @@ def plotEigenvalues():
     ax.plot(np.abs(np.real(values)), np.abs(np.imag(values)), '.', label='eigenvalues')
     ax.set_xlabel("|real|")
     ax.set_ylabel("imag")
-    #ax.set_title("eigenvalues " + title)
+    # ax.set_title("eigenvalues " + title)
     plt.savefig(fileBaseName + "_Yl=%d_Yr=%d" % (Yleft, Yright) + '_values.pdf')
     plt.show()
 

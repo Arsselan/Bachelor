@@ -1,13 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.animation as anim
-import scipy.sparse
-import scipy.sparse.linalg
 
-from scipy.interpolate import BSpline
-import bspline
-import lagrange
-from waves1d import *
+from context import fem1d
 
 
 p = 3
@@ -20,9 +14,9 @@ right = 1.0
 print("Meshing...", flush=True)
 
 # Create grid and ansatz
-grid = UniformGrid(left, right, n)
-ansatz = createAnsatz('Spline', 'p-1', p, grid)
-ansatzLagrange = createAnsatz('Lagrange', '0', p, grid)
+grid = fem1d.UniformGrid(left, right, n)
+ansatz = fem1d.createAnsatz('Spline', 'p-1', p, grid)
+ansatzLagrange = fem1d.createAnsatz('Lagrange', '0', p, grid)
 t = ansatz.knots
 
 # Greville points
@@ -82,7 +76,7 @@ for i in range(nElements):
     tyy = np.zeros((nPoints, nC))
     tdy = np.zeros((nPoints, nC))
     for j in range(len(xx)):
-        ders = bspline.evaluateBSplineBases(p + i, xx[j], p, 1, t)
+        ders = fem1d.bspline.evaluateBSplineBases(p + i, xx[j], p, 1, t)
         yy[j] = ders[0]
         dy[j] = ders[1]
         invTAB = invT[:, ansatz.locationMap(i)]
@@ -118,7 +112,7 @@ ax2.plot(t, np.zeros(t.size), '-+', label='knots')
 ax2.plot(g, g*0+1, 'o', label='Greville')
 
 plt.show()
-fileBaseName = getFileBaseNameAndCreateDir("results/exampe_basis_transformation/", "basis")
+fileBaseName = fem1d.getFileBaseNameAndCreateDir("results/basis_transformation/", "basis")
 
 np.savetxt(fileBaseName + "_splines.dat", dataSplines)
 np.savetxt(fileBaseName + "_lagrange.dat", dataLagrange)

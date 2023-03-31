@@ -1,14 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.animation as anim
 import scipy.sparse
 import scipy.sparse.linalg
-import bspline
 
-from waves1d import *
-from sources import *
-
-from progress import *
+from context import fem1d
 
 # problem
 left = 0
@@ -21,11 +16,11 @@ pi = np.pi
 
 wx = 2 * pi / L * 10
 wt = 2 * pi * 3
-source = Manufactured1(wx, wt)
+source = fem1d.sources.Manufactured1(wx, wt)
 
 # method
-#ansatzType = 'Spline'
-#continuity = 'p-1'
+# ansatzType = 'Spline'
+# continuity = 'p-1'
 
 ansatzType = 'Lagrange'
 continuity = '0'
@@ -42,7 +37,7 @@ def alpha(x):
     return 1e-20
 
 
-domain = Domain(alpha)
+domain = fem1d.Domain(alpha)
 
 
 def runStudy(n, p, spectral):
@@ -51,22 +46,22 @@ def runStudy(n, p, spectral):
     dt = tMax / nt
 
     # create grid and domain
-    grid = UniformGrid(left, right, n)
+    grid = fem1d.UniformGrid(left, right, n)
 
     # create ansatz and quadratures
-    ansatz = createAnsatz(ansatzType, continuity, p, grid)
+    ansatz = fem1d.createAnsatz(ansatzType, continuity, p, grid)
 
     gaussPointsK = np.polynomial.legendre.leggauss(p + 8)
-    quadratureK = SpaceTreeQuadrature(grid, gaussPointsK, domain, depth)
+    quadratureK = fem1d.SpaceTreeQuadrature(grid, gaussPointsK, domain, depth)
 
-    gaussPointsM = GLL(p + 1)
-    quadratureM = SpaceTreeQuadrature(grid, gaussPointsM, domain, depth)
+    gaussPointsM = fem1d.gll.computeGllPoints(p + 1)
+    quadratureM = fem1d.SpaceTreeQuadrature(grid, gaussPointsM, domain, depth)
 
     # create system
     if spectral:
-        system = TripletSystem.fromTwoQuadratures(ansatz, quadratureM, quadratureK, source.fx)
+        system = fem1d.TripletSystem.fromTwoQuadratures(ansatz, quadratureM, quadratureK, source.fx)
     else:
-        system = TripletSystem.fromOneQuadrature(ansatz, quadratureK, source.fx)
+        system = fem1d.TripletSystem.fromOneQuadrature(ansatz, quadratureK, source.fx)
 
     system.findZeroDof(-1e60)
     print("Zero dof: " + str(system.zeroDof))
@@ -117,31 +112,31 @@ def runStudy(n, p, spectral):
     print("Time integration ... ", flush=True)
     errorSum = 0
     for i in range(2, nt + 1):
-        #print("t = %e" % (i*dt))
+        # print("t = %e" % (i*dt))
         rhs = fullM * (2 * u[i - 1] - u[i - 2]) + dt ** 2 * (F * source.ft(i * dt) - K * u[i - 1])
         u[i] = lu.solve(rhs)
-        #u[i] = luFull.solve(rhs)
+        # u[i] = luFull.solve(rhs)
 
         if True:
             nCorr = 500
             omega = 1.0
             deltaU = u[i]
             for iCorr in range(nCorr):
-                #print(np.linalg.norm(u[i] - uCompare))
+                # print(np.linalg.norm(u[i] - uCompare))
                 deltaUP = deltaU
                 deltaU = lu.solve(rhs - fullM * u[i])
                 deltaR = deltaU - deltaUP
                 if iCorr > 0:
                     omega = - omega * deltaR.dot(deltaUP) / deltaR.dot(deltaR)
-                if np.isnan(omega).any() or np.linalg.norm(deltaU)<1e-19:
+                if np.isnan(omega).any() or np.linalg.norm(deltaU) < 1e-19:
                     break
-                u[i] += omega*deltaU
+                u[i] += omega * deltaU
 
         fullU[i] = system.getFullVector(u[i])
         evalU[i] = I * fullU[i]
         if i == nt:
             evalU2 = I2 * fullU[i]
-            errorSum += dt*np.linalg.norm((evalU2 - source.uxt(nodes2, (i + 1) * dt)) / system.nDof())
+            errorSum += dt * np.linalg.norm((evalU2 - source.uxt(nodes2, (i + 1) * dt)) / system.nDof())
 
     nDof = system.nDof()
 

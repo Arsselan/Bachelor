@@ -3,12 +3,8 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as anim
 import scipy.sparse
 import scipy.sparse.linalg
-import bspline
 
-import sources
-
-from waves1d import *
-from progress import *
+from context import fem1d
 
 # problem
 left = 0
@@ -42,7 +38,7 @@ k = eval(continuity)
 n = int(n / (p - k))
 
 # create grid and domain
-grid = UniformGrid(left, right, n)
+grid = fem1d.UniformGrid(left, right, n)
 #extra = 0.8*grid.elementSize
 L = grid.right - 2*extra - grid.left
 pi = np.pi
@@ -58,28 +54,28 @@ def alpha(x):
     return 1e-8
 
 
-domain = Domain(alpha)
+domain = fem1d.Domain(alpha)
 
 #source = sources.RicklersWavelet(10.0, alpha)
-source = sources.NoSource()
+source = fem1d.sources.NoSource()
 
 # create ansatz and quadrature
-ansatz = createAnsatz(ansatzType, continuity, p, grid)
+ansatz = fem1d.createAnsatz(ansatzType, continuity, p, grid)
 gaussPoints = np.polynomial.legendre.leggauss(p + 1)
-quadrature = SpaceTreeQuadrature(grid, gaussPoints, domain, depth)
+quadrature = fem1d.SpaceTreeQuadrature(grid, gaussPoints, domain, depth)
 
 # create system
-gaussPointsM = GLL(p + 1)
-quadratureM = SpaceTreeQuadrature(grid, gaussPointsM, domain, depth)
+gaussPointsM = fem1d.gll.computeGllPoints(p + 1)
+quadratureM = fem1d.SpaceTreeQuadrature(grid, gaussPointsM, domain, depth)
 
 gaussPointsK = np.polynomial.legendre.leggauss(p + 1)
-quadratureK = SpaceTreeQuadrature(grid, gaussPointsK, domain, depth)
+quadratureK = fem1d.SpaceTreeQuadrature(grid, gaussPointsK, domain, depth)
 
 # create system
 if spectral:
-    system = TripletSystem.fromTwoQuadratures(ansatz, quadratureM, quadratureK, source.fx)
+    system = fem1d.TripletSystem.fromTwoQuadratures(ansatz, quadratureM, quadratureK, source.fx)
 else:
-    system = TripletSystem.fromOneQuadrature(ansatz, quadratureK, source.fx)
+    system = fem1d.TripletSystem.fromOneQuadrature(ansatz, quadratureK, source.fx)
 
 system.findZeroDof(0)
 if len(system.zeroDof) > 0:
@@ -127,7 +123,7 @@ evalU = 0 * fullU
 # set initial conditions
 times[0] = -dt
 times[1] = 0.0
-u0, u1 = sources.applyGaussianInitialConditions(ansatz, dt, -0.6, alpha)
+u0, u1 = fem1d.sources.applyGaussianInitialConditions(ansatz, dt, -0.6, alpha)
 u[0] = system.getReducedVector(u0)
 u[1] = system.getReducedVector(u1)
 for i in range(2):

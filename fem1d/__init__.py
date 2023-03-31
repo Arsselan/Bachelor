@@ -2,6 +2,7 @@
 from .gll import *
 from .lagrange import *
 from .bspline import *
+from .legendre import *
 
 from .ansatz import *
 from .quadrature import *

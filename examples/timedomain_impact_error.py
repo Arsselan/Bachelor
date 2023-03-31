@@ -11,6 +11,7 @@ from context import fem1d
 #ref = np.loadtxt("results/example_timedomain_impact_reference/reference3.dat")
 #ref = np.loadtxt("results/example_timedomain_impact_reference/lagrange_n100000_p1_rs_reduced2.dat")
 ref = np.loadtxt("results/example_timedomain_impact/Spline_n=1000_p=4_CON.dat")
+#ref = np.loadtxt("results/example_timedomain_impact/Spline_n=1000_p=3_CON.dat")
 
 ref = np.delete(ref, 0, 0)
 ref = np.delete(ref, 0, 0)

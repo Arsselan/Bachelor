@@ -25,7 +25,7 @@ if 'config' not in locals():
         continuity='p-1',
         mass='CON',
 
-        depth=35,
+        depth=25,
         spectral=False,
         dual=False,
         stabilize=0,
@@ -46,7 +46,7 @@ w = study.computeLargestEigenvalueSparse()
 critDeltaT = 2 / abs(w)
 print("Critical time step size is %e" % critDeltaT)
 print("Chosen time step size is %e" % dt)
-dt = fem1d.correctTimeStepSize(dt, tMax, critDeltaT)
+dt, nt = fem1d.correctTimeStepSize(dt, tMax, critDeltaT)
 print("Corrected time step size is %e" % dt)
 
 # apply initial conditions
@@ -82,20 +82,16 @@ def postProcess(animationSpeed=4):
     fem1d.postProcessTimeDomainSolution(study, evalNodes, evalU, tMax, nt, animationSpeed)
 
 
-def getResults():
-    error = np.linalg.norm(evalU[1] - evalU[-1])
-    return w, error
-
-
 def computeSpectrum():
-    ps = np.abs(np.fft.fft(u[:, 1]))
-    freqs = np.fft.fftfreq(u[:, 1].size, dt)
+    ps = np.abs(np.fft.fft(evalU[:, 0]))
+    freqs = np.fft.fftfreq(evalU[:, 0].size, dt)
     idx = np.argsort(freqs)
-    plt.plot(freqs[idx], 2.0 / nt * ps[idx])
+    plt.plot(freqs[idx], 2.0 / nt * ps[idx], "-*")
+    plt.show()
 
 
 def computeScipySpectrum():
-    uf = fft(u[:, 1])
+    uf = fft(evalU[:, 0])
     ff = np.linspace(0.0, 1.0 / (2.0 * dt), nt // 2)
     plt.semilogy(ff, 2.0 / nt * np.abs(uf[0:nt // 2]))
 

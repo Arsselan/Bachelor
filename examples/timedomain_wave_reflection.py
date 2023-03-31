@@ -23,15 +23,15 @@ if 'config' not in locals():
         dual=False,
         stabilize=1e-8,
         smartQuadrature=True,
-        eigenvalueStabilization=False,
         source=fem1d.sources.NoSource()
     )
 
-config.ansatzType = 'Lagrange'
-config.p = 4
-config.mass = 'HRZ'
-config.n = 51
-config.extra = 0.2
+if 0:
+    config.ansatzType = 'Lagrange'
+    config.p = 4
+    config.mass = 'HRZ'
+    config.n = 51
+    config.extra = 0.2
 
 if 0:
     config.ansatzType = 'Spline'

@@ -1,12 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.animation as anim
-import scipy.sparse
-import scipy.sparse.linalg
 
-from scipy.interpolate import BSpline
-import bspline
-from waves1d import *
+from context import fem1d
 
 
 p = 3
@@ -21,8 +16,8 @@ d = (right - left) / n
 print("Meshing...", flush=True)
 
 # Create grid and ansatz
-grid = UniformGrid(left, right, n)
-ansatz = createAnsatz('Spline', 'p-1', p, grid)
+grid = fem1d.UniformGrid(left, right, n)
+ansatz = fem1d.createAnsatz('Spline', 'p-1', p, grid)
 t = ansatz.knots
 
 # plot
@@ -79,7 +74,7 @@ for i in range(len(t) - 2 * p - 1):
     tMat = np.linalg.inv(Me).dot(diagMe)
 
     for j in range(len(xx)):
-        ders = bspline.evaluateBSplineBases(p + i, xx[j], p, 1, t)
+        ders = fem1d.bspline.evaluateBSplineBases(p + i, xx[j], p, 1, t)
         yy[j] = ders[0]
         dy[j] = ders[1]
         tyy[j] = yy[j].dot(tMat)

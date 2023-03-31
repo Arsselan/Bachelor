@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import lagrange
+
+from context import fem1d
 
 k = 3
 n = 2
@@ -12,7 +13,6 @@ right = 1.2
 print("Meshing...", flush=True)
 
 t = np.linspace(left, right, n + 1)
-points = np.linspace(-1, 1, k + 1);
 
 # plot
 print("Plotting...", flush=True)
@@ -31,16 +31,21 @@ for i in range(n):
     yy = np.zeros((nPlot, k + 1))
     dy = np.zeros((nPlot, k + 1))
     for j in range(len(xx)):
-        ders = lagrange.evaluateLagrangeBases(i, xx[j], points, 1, t)
+        ders = fem1d.legendre.evaluateLegendreBases(i, xx[j], k, 1, t)
         yy[j] = ders[0]
         dy[j] = ders[1]
     for j in range(k + 1):
         ax1.plot(xx, yy[:, j], '-x')
         ax2.plot(xx, dy[:, j], '-x')
-    ax1.plot(xx, np.sum(yy, 1), '--')
-    ax2.plot(xx, np.sum(dy, 1), '-')
+    ax1.plot(xx, np.sum(yy, 1), '--', label="sum")
+    ax2.plot(xx, np.sum(dy, 1), '-', label="sum")
 
-ax1.plot(t, np.zeros(t.size), '-o')
-ax2.plot(t, np.zeros(t.size), '--o')
+ax1.plot(t, np.zeros(t.size), '-o', label="nodes")
+ax2.plot(t, np.zeros(t.size), '--o', label="nodes")
 
+ax1.set_title("Functions")
+ax2.set_title("Derivatives")
+
+ax1.legend()
+ax2.legend()
 plt.show()

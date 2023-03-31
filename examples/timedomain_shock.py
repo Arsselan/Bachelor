@@ -1,14 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as anim
-import scipy.sparse
-import scipy.sparse.linalg
 
-import sources
-from waves1d import *
-from fem1d.studies import *
+from context import fem1d
 
-config = StudyConfig(
+config = fem1d.StudyConfig(
     # problem
     left=0,
     right=1.2,
@@ -28,7 +24,7 @@ config = StudyConfig(
     dual=False,
     stabilize=0,
     smartQuadrature=False,
-    source=sources.NoSource()
+    source=fem1d.sources.NoSource()
 )
 
 L = config.right - 2*config.extra
@@ -41,16 +37,16 @@ temp = config.extra
 for i in range(0):
     config.extra = i / 10 * 1.2/120
     print("extra = %e" % config.extra)
-    study = EigenvalueStudy(config)
+    study = fem1d.EigenvalueStudy(config)
 config.extra = temp
-study = EigenvalueStudy(config)
+study = fem1d.EigenvalueStudy(config)
 
 # compute critical time step size
 w = study.computeLargestEigenvalueSparse()
 critDeltaT = 2 / abs(w)
 print("Critical time step size is %e" % critDeltaT)
 print("Chosen time step size is %e" % dt)
-dt = correctTimeStepSize(dt, tMax, critDeltaT)
+dt = fem1d.correctTimeStepSize(dt, tMax, critDeltaT)
 print("Corrected time step size is %e" % dt)
 
 # solve sparse
@@ -58,10 +54,10 @@ print("Corrected time step size is %e" % dt)
 boundaries = [study.config.extra, study.config.right-study.config.extra]
 normals = [-1, 1]
 forces = [1, 1]
-study.F = study.system.getReducedVector(study.system.F + createNeumannVector(study.system, boundaries, normals, forces))
+study.F = study.system.getReducedVector(study.system.F + fem1d.createNeumannVector(study.system, boundaries, normals, forces))
 print(study.F)
 
-u0, u1 = sources.applyGaussianInitialConditions(study.ansatz, dt, -0.6, config.stabilize)
+u0, u1 = fem1d.sources.applyGaussianInitialConditions(study.ansatz, dt, -0.6, config.stabilize)
 evalNodes = np.linspace(study.grid.left + config.extra, study.grid.right - config.extra, study.ansatz.nDof())
 u, fullU, evalU, iMat = study.runCentralDifferenceMethod(dt, nt, u0*0, u1*0, evalNodes)
 
