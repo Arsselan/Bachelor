@@ -112,8 +112,14 @@ for p in allPs:
 
         print("p = %d, n = %d" % (p, n))
 
-        #if n < 90 or n > 100:
-        #    continue
+        # if n < 45 or n > 55: # lagrange zoom
+        # if n != 52:
+        if n < 135 or n > 145: # spline zoom
+        # if n != 139:
+            grid = fem1d.UniformGrid(config.left, config.right, config.n)
+            ansatz = fem1d.createAnsatz(config.ansatzType, config.continuity, config.p, grid)
+            dofs[i] = ansatz.nDof()
+            continue
 
         config.n = n
         study = fem1d.EigenvalueStudy(config)
@@ -134,9 +140,10 @@ for p in allPs:
         eVector, vIdx = fem1d.findEigenvector(study.v, eigenvalueSearch, eigenvalue, iMatrix, study.system, vExact)
         vecErrors[i] = np.linalg.norm(eVector - vExact) / np.linalg.norm(vExact)
 
-        # eVector2, vIdx2 = fem1d.findEigenvector(study.v, "number", eigenvalue, iMatrix, study.system, vExact)
-        # eVector3, vIdx3 = fem1d.findEigenvector(study.v, "number", wIdx, iMatrix, study.system, vExact)
-        # fem1d.plot(nodesEval, [vExact, eVector, eVector2, eVector3], ["exact", "nearest", "number", "nearest w"])
+        if 1:
+            eVector2, vIdx2 = fem1d.findEigenvector(study.v, "number", eigenvalue, iMatrix, study.system, vExact)
+            eVector3, vIdx3 = fem1d.findEigenvector(study.v, "number", wIdx, iMatrix, study.system, vExact)
+            fem1d.plot(nodesEval, [vExact, eVector, eVector2, eVector3], ["exact", "nearest", "number", "nearest w"])
 
         MAT = (study.K.toarray() - study.w[wIdx]**2 * study.getMassMatrix().toarray())
         # MAT = (np.float32(study.K.toarray()) - study.w[wIdx]**2 * np.float32(study.getMassMatrix().toarray()))

@@ -10,7 +10,7 @@ extras = np.array(extras) * 0.1 * 0.5
 #extras = [5e-3]
 
 n = 240
-p = 2
+p = 3
 
 config = fem1d.StudyConfig(
     # problem
@@ -30,13 +30,13 @@ config = fem1d.StudyConfig(
     depth=35,
     spectral=False,
     dual=False,
-    stabilize=0,
+    stabilize=1e-8,
     smartQuadrature=False,
     source=fem1d.sources.NoSource()
 )
 
-# masses = ['CON', 'HRZ', 'RS']
-masses = ['RS']
+masses = ['CON', 'HRZ', 'RS']
+# masses = ['RS']
 
 for mass in masses:
     print(mass)
