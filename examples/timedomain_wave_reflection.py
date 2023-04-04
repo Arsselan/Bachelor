@@ -58,7 +58,7 @@ w = study.computeLargestEigenvalueSparse()
 critDeltaT = 2 / abs(w)
 print("Critical time step size is %e" % critDeltaT)
 print("Chosen time step size is %e" % dt)
-dt, nt = fem1d.correctTimeStepSize(dt, tMax, critDeltaT)
+dt, nt = fem1d.correctTimeStepSize(dt, tMax, critDeltaT, 0.1)
 print("Corrected time step size is %e" % dt)
 
 # solve sparse

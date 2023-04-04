@@ -9,6 +9,18 @@ extras = np.array(extras) * 0.1 * 0.5
 
 #extras = [5e-3]
 
+#extras = np.linspace(1.4455e-2, 1.495e-02, 11)
+
+extras = np.logspace(np.log10(1.4455e-2), np.log10(1.495e-02), 11)
+
+extras = np.linspace(1.4455e-2, 1.495e-02 + (1.495e-02 - 1.4455e-2)*0.1, 12)
+
+extras = [1.495e-02 + (1.495e-02 - 1.4455e-2)*0.04]
+
+extras = [1.495e-02]
+
+##extras = [0.014951]
+
 n = 240
 p = 3
 
@@ -19,9 +31,9 @@ config = fem1d.StudyConfig(
     extra=0,
 
     # method
-    # ansatzType='Lagrange',
+    ansatzType='Lagrange',
     # ansatzType='InterpolatorySpline',
-    ansatzType='Spline',
+    # ansatzType='Spline',
     n=n,
     p=p,
     continuity='p-1',
@@ -30,13 +42,14 @@ config = fem1d.StudyConfig(
     depth=35,
     spectral=False,
     dual=False,
-    stabilize=1e-8,
-    smartQuadrature=False,
+    stabilize=0,
+    smartQuadrature=True,
     source=fem1d.sources.NoSource()
 )
 
-masses = ['CON', 'HRZ', 'RS']
+# masses = ['CON', 'HRZ', 'RS']
 # masses = ['RS']
+masses = ['CON']
 
 for mass in masses:
     print(mass)
@@ -92,5 +105,5 @@ for mass in masses:
     title += "_p%d" % config.p
     title += "_n%d" % config.n
     title += "_dof%d" % study.ansatz.nDof()
-    filename = fem1d.getFileBaseNameAndCreateDir("results/timedomain_wave_reflection_study_" + str(config.stabilize) + "/const_dt/", title)
+    filename = fem1d.getFileBaseNameAndCreateDir("results/timedomain_wave_reflection_study_" + str(config.stabilize) + "/const_dt_detail_overshoot/", title)
     np.savetxt(filename + ".dat", data)
