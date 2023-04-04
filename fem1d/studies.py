@@ -209,17 +209,65 @@ class EigenvalueStudy:
             times[i] = i * dt
             u[i] = factorized.solve(
                 M * (2 * u[i - 1] - u[i - 2]) + dt ** 2 * (self.F * self.config.source.ft((i - 1) * dt) - self.K * u[i - 1]))
-                #M * (2 * u[i - 1] - u[i - 2]) + dt ** 2 * (self.F - self.K * u[i - 1]))
-
-            #if u[i][-1] > 0.1:
-            #    print("CONTACT!")
-            #    u[i][-1] = 0.1
-            #    u[i-1][-1] = 0.1
 
             fullU[i] = self.system.getFullVector(u[i])
             evalU[i] = iMat * fullU[i]
 
         return u, fullU, evalU, iMat
+
+    def runCentralDifferenceMethodLowMemory(self, dt, nt, u0, u1, evalPos, evalTimes):
+        M = self.getMassMatrix()
+
+        nSavedTimeSteps = len(evalTimes)
+        print("Saving times ", evalTimes)
+        savedTimeStepIndex = 0
+
+        # prepare result arrays
+        u = np.zeros((3, M.shape[0]))
+        fullU = np.zeros((3, self.ansatz.nDof()))
+        evalU = np.zeros((nSavedTimeSteps, len(evalPos)))
+        times = np.zeros(nSavedTimeSteps)
+
+        iMat = self.ansatz.interpolationMatrix(evalPos)
+
+        # set initial conditions
+        u[0] = self.system.getReducedVector(u0)
+        u[1] = self.system.getReducedVector(u1)
+        fullU[0] = self.system.getFullVector(u[0])
+        fullU[1] = self.system.getFullVector(u[1])
+
+        time = -dt
+        if time >= evalTimes[savedTimeStepIndex]-0.5*dt:
+            evalU[savedTimeStepIndex] = iMat * fullU[0]
+            times[savedTimeStepIndex] = time
+            savedTimeStepIndex += 1
+            print("Stored time step %d, time %e" % (0, time))
+        time = 0.0
+        if time >= evalTimes[savedTimeStepIndex]-0.5*dt:
+            evalU[savedTimeStepIndex] = iMat * fullU[1]
+            times[savedTimeStepIndex] = time
+            savedTimeStepIndex += 1
+            print("Stored time step %d, time %e" % (1, time))
+
+        print("Factorization ... ", flush=True)
+        factorized = scipy.sparse.linalg.splu(M)
+
+        print("Time integration ... ", flush=True)
+        self.F = self.F * 0
+        for i in range(2, nt + 1):
+            time = i * dt
+            u[2] = factorized.solve(M * (2 * u[1] - u[0]) + dt ** 2 * (self.F - self.K * u[1]))
+            if savedTimeStepIndex < nSavedTimeSteps and time >= evalTimes[savedTimeStepIndex]-0.5*dt:
+                fullU[2] = self.system.getFullVector(u[2])
+                evalU[savedTimeStepIndex] = iMat * fullU[2]
+                times[savedTimeStepIndex] = time
+                savedTimeStepIndex += 1
+                print("Stored time step %d, time %e" % (i, time))
+
+            u[0] = u[1]
+            u[1] = u[2]
+
+        return times, fullU, evalU, iMat
 
     def runCentralDifferenceMethod2(self, dt, nt, u0, u1, evalPos):
         if self.config.mass == 'CON':

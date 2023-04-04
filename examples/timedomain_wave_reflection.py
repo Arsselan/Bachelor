@@ -45,7 +45,7 @@ L = config.right - 2*config.extra
 tMax = L
 nt = 1200*20
 if config.p == 3:
-    nt = 12000*10*2
+    nt = 12000*10*2*10
 # nt = int(tMax / 8e-6)
 # nt = 1
 dt = tMax / nt
@@ -58,13 +58,14 @@ w = study.computeLargestEigenvalueSparse()
 critDeltaT = 2 / abs(w)
 print("Critical time step size is %e" % critDeltaT)
 print("Chosen time step size is %e" % dt)
-dt, nt = fem1d.correctTimeStepSize(dt, tMax, critDeltaT, 0.1)
+dt, nt = fem1d.correctTimeStepSize(dt, tMax, critDeltaT, 0.9)
 print("Corrected time step size is %e" % dt)
 
 # solve sparse
 u0, u1 = fem1d.sources.applyGaussianInitialConditions(study.ansatz, dt, -0.6, config.stabilize)
 evalNodes = np.linspace(study.grid.left + config.extra, study.grid.right - config.extra, study.ansatz.nDof())
-u, fullU, evalU, iMat = study.runCentralDifferenceMethod(dt, nt, u0, u1, evalNodes)
+# u, fullU, evalU, iMat = study.runCentralDifferenceMethod(dt, nt, u0, u1, evalNodes)
+u, fullU, evalU, iMat = study.runCentralDifferenceMethodLowMemory(dt, nt, u0, u1, evalNodes, [-dt, 0.0, tMax])
 
 
 def postProcess(animationSpeed=4):
