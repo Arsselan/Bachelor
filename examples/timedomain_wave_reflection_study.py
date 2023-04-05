@@ -19,7 +19,8 @@ extras = [1.495e-02 + (1.495e-02 - 1.4455e-2)*0.04]
 
 extras = [1.495e-02]
 
-extras = np.linspace(1.493e-2, 1.4955e-02, 26)
+extras = np.linspace(1.492e-2, 1.4955e-02, 36)
+extras = np.linspace(1.492e-2, 1.493e-2, 11)
 
 # extras = [0.014955]
 
@@ -44,7 +45,7 @@ config = fem1d.StudyConfig(
     depth=35,
     spectral=False,
     dual=False,
-    stabilize=0,
+    stabilize=1e-20,
     smartQuadrature=True,
     source=fem1d.sources.NoSource()
 )
@@ -108,5 +109,5 @@ for mass in masses:
     title += "_p%d" % config.p
     title += "_n%d" % config.n
     title += "_dof%d" % study.ansatz.nDof()
-    filename = fem1d.getFileBaseNameAndCreateDir("results/timedomain_wave_reflection_study_" + str(config.stabilize) + "/small_dt_detail_overshoot/", title)
+    filename = fem1d.getFileBaseNameAndCreateDir("results/timedomain_wave_reflection_study_" + str(config.stabilize) + "/const_dt_detail_overshoot2/", title)
     np.savetxt(filename + ".dat", data)
