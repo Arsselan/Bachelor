@@ -66,6 +66,76 @@ def runCentralDifferenceMethodStrongContactBoundaryFitted(study, dt, nt, u0, u1,
     return times, u, fullU, evalU, iMat
 
 
+# 2
+def runCentralDifferenceMethodStrongContactBoundaryFittedLowMemory(study, dt, nt, u0, u1, evalPos):
+    if study.config.extra != 0.0:
+        print("Error! This function is designed for boundary fitted cases only.")
+        return
+
+    # get mass matrix
+    M = study.getMassMatrix()
+
+    # prepare result arrays
+    u = np.zeros((3, M.shape[0]))
+    fullU = np.zeros((3, study.ansatz.nDof()))
+    evalU = np.zeros((nt + 2, len(evalPos)))
+
+    times = np.zeros(nt + 2)
+
+    iMat = study.ansatz.interpolationMatrix(evalPos)
+
+    # set initial conditions
+    times[0] = -dt
+    times[1] = 0.0
+    u[0] = study.system.getReducedVector(u0)
+    u[1] = study.system.getReducedVector(u1)
+    for i in range(2):
+        fullU[i] = study.system.getFullVector(u[i])
+        evalU[i] = iMat * fullU[i]
+
+    print("Factorization ... ", flush=True)
+    factorized = scipy.sparse.linalg.splu(M)
+
+    print("Time integration ... ", flush=True)
+    study.F = study.F * 0
+    onePercent = int(nt / 100)
+    for i in range(2, nt + 2):
+        if i % onePercent == 0:
+            print(".", end="", flush=True)
+            if i % (onePercent * 10) == 0:
+                print("%d%%" % (i / onePercent))
+
+        # solve
+        times[i] = (i - 1) * dt
+        u[2] = factorized.solve(M * (2 * u[1] - u[0]) + dt ** 2 * (study.F - study.K * u[1]))
+
+        # check penetration
+        if u[2][-1] > 0.1:
+            u[2][-1] = 0.1
+            u[2 - 1][-1] = 0.1
+            u[2 - 2][-1] = 0.1
+
+        if u[2][0] < -0.1:
+            u[2][0] = -0.1
+            u[2 - 1][0] = -0.1
+            u[2 - 2][0] = -0.1
+
+        # double check penetration
+        currentPos = evalPos + evalU[i]
+        if (currentPos > study.grid.right + 0.1).any():
+            print("Error! Right end penetrates boundary.")
+        if (currentPos < study.grid.left - 0.1).any():
+            print("Error! Left end penetrates boundary.")
+
+        fullU[2] = study.system.getFullVector(u[2])
+        evalU[i] = iMat * fullU[2]
+
+        u[0] = u[1]
+        u[1] = u[2]
+
+    return times, u, fullU, evalU, iMat
+
+
 # 3
 def runCentralDifferenceMethodWeakContactBoundaryFitted(study, dt, nt, u0, u1, evalPos, penaltyFactor):
     if study.config.extra != 0.0:

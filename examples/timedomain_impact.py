@@ -19,7 +19,7 @@ if 'config' not in locals():
         # ansatzType='Lagrange',
         ansatzType='Spline',
         # ansatzType = 'InterpolatorySpline',
-        n=1000,
+        n=2000,
         p=5,
 
         continuity='p-1',
@@ -67,7 +67,7 @@ if penaltyFactor > 0:
         study, dt, nt, u0, u1, evalNodes, penaltyFactor)
     title = title + " pen%e" % penaltyFactor
 else:
-    times, u, fullU, evalU, iMat = fem1d.runCentralDifferenceMethodStrongContactBoundaryFitted(
+    times, u, fullU, evalU, iMat = fem1d.runCentralDifferenceMethodStrongContactBoundaryFittedLowMemory(
         study, dt, nt, u0, u1, evalNodes)
 
 # save
