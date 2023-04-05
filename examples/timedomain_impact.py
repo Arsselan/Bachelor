@@ -16,11 +16,11 @@ if 'config' not in locals():
         extra=0,
 
         # method
-        #ansatzType='Lagrange',
+        # ansatzType='Lagrange',
         ansatzType='Spline',
-        #ansatzType = 'InterpolatorySpline',
-        n=100,
-        p=3,
+        # ansatzType = 'InterpolatorySpline',
+        n=1000,
+        p=5,
 
         continuity='p-1',
         mass='CON',
@@ -34,7 +34,7 @@ if 'config' not in locals():
     )
 
 L = config.right - 2*config.extra
-tMax = L*10*20
+tMax = L*10*2
 nt = 1200000
 dt = tMax / nt
 
@@ -52,6 +52,7 @@ print("Corrected time step size is %e" % dt)
 # apply initial conditions
 u0, u1 = fem1d.sources.applyConstantVelocityInitialConditions(study.ansatz, dt, 0.1)
 
+# define evaluation positions
 # evalNodes = np.linspace(study.grid.left + config.extra, study.grid.right - config.extra, study.ansatz.nDof())
 
 left = study.grid.left + config.extra
@@ -59,15 +60,25 @@ right = study.grid.right - config.extra
 evalNodes = np.array([left, left+1e-6, 0.5*(right-left), right-1e-6, right])
 
 # solve
-# times, u, fullU, evalU, iMat = fem1d.runCentralDifferenceMethodStrongContactBoundaryFitted(
-#    study, dt, nt, u0, u1, evalNodes)
+title = config.ansatzType + " n%d" % config.n + " p%d" % config.p + " " + config.mass + " dt%e" % dt
+penaltyFactor = 0
+if penaltyFactor > 0:
+    times, u, fullU, evalU, iMat = fem1d.runCentralDifferenceMethodWeakContactBoundaryFittedLowMemory(
+        study, dt, nt, u0, u1, evalNodes, penaltyFactor)
+    title = title + " pen%e" % penaltyFactor
+else:
+    times, u, fullU, evalU, iMat = fem1d.runCentralDifferenceMethodStrongContactBoundaryFitted(
+        study, dt, nt, u0, u1, evalNodes)
 
-times, u, fullU, evalU, iMat = fem1d.runCentralDifferenceMethodWeakContactBoundaryFittedLowMemory(
-    study, dt, nt, u0, u1, evalNodes)
-
-title = config.ansatzType + " n=%d" % config.n + " p=%d" % config.p + " " + config.mass
-fileBaseName = fem1d.getFileBaseNameAndCreateDir("results/example_timedomain_impact/", title.replace(' ', '_'))
+# save
+fileBaseName = fem1d.getFileBaseNameAndCreateDir("results/timedomain_impact/", title.replace(' ', '_'))
 fem1d.writeColumnFile(fileBaseName + '.dat', (times, evalU[:, 0], evalU[:, -1]))
+
+# evaluate maxima
+max1 = np.max(evalU[0:int(nt/3), 0])
+max2 = np.max(evalU[int(nt/3):int(2*nt/3), 0])
+max3 = np.max(evalU[int(2*nt/3):int(nt), 0])
+print("Maxima: %e, %e, %e" % (max1, max2, max3))
 
 fem1d.plot(times, [evalU[:, -1], evalU[:, 0]])
 
