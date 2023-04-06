@@ -16,14 +16,14 @@ if 'config' not in locals():
         extra=0,
 
         # method
-        # ansatzType='Lagrange',
-        ansatzType='Spline',
+        ansatzType='Lagrange',
+        #ansatzType='Spline',
         # ansatzType = 'InterpolatorySpline',
-        n=2000,
-        p=5,
+        n=100,
+        p=2,
 
         continuity='p-1',
-        mass='CON',
+        mass='HRZ',
 
         depth=25,
         spectral=False,
@@ -35,7 +35,7 @@ if 'config' not in locals():
 
 L = config.right - 2*config.extra
 tMax = L*10*2
-nt = 1200000
+nt = 120000
 dt = tMax / nt
 
 # create study
@@ -61,7 +61,7 @@ evalNodes = np.array([left, left+1e-6, 0.5*(right-left), right-1e-6, right])
 
 # solve
 title = config.ansatzType + " n%d" % config.n + " p%d" % config.p + " " + config.mass + " dt%e" % dt
-penaltyFactor = 0
+penaltyFactor = 1e4
 if penaltyFactor > 0:
     times, u, fullU, evalU, iMat = fem1d.runCentralDifferenceMethodWeakContactBoundaryFittedLowMemory(
         study, dt, nt, u0, u1, evalNodes, penaltyFactor)

@@ -286,8 +286,8 @@ def runCentralDifferenceMethodWeakContactImmersedLowMemory(study, dt, nt, u0, u1
     onePercent = int(nt / 100)
     for i in range(2, nt + 2):
         if i % onePercent == 0:
-            print(".", end="")
-            if i % onePercent*10 == 0:
+            print(".", end="", flush=True)
+            if i % (onePercent*10) == 0:
                 print("%d%%" % (i / onePercent))
 
         # solve

@@ -402,6 +402,6 @@ def createNeumannVector(system, boundaries, normals, forces):
 
         F[lm] = np.array(shapes[0]) * normals[iBoundary] * forces[iBoundary]
 
-        print(F)
+        #print(F)
 
     return F
