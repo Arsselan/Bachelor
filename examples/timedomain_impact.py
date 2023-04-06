@@ -16,14 +16,14 @@ if 'config' not in locals():
         extra=0,
 
         # method
-        ansatzType='Lagrange',
+        #ansatzType='Lagrange',
         #ansatzType='Spline',
-        # ansatzType = 'InterpolatorySpline',
-        n=100,
-        p=2,
+        ansatzType='InterpolatorySpline',
+        n=200,
+        p=3,
 
         continuity='p-1',
-        mass='HRZ',
+        mass='RS',
 
         depth=25,
         spectral=False,

@@ -13,18 +13,18 @@ if 'config' not in locals():
         # problem
         left=0,
         right=1.2,
-        extra=1.2 / 100 * 0.99,
-        #extra=1.2 / 200 * 1.99,
+        #extra=1.2 / 100 * 0.99,
+        extra=1.2 / 200 * 1.99,
 
         # method
-        ansatzType='Lagrange',
+        # ansatzType='Lagrange',
         # ansatzType='Spline',
-        # ansatzType = 'InterpolatorySpline',
-        n=66,
+        ansatzType='InterpolatorySpline',
+        n=200,
         p=3,
 
         continuity='p-1',
-        mass='HRZ',
+        mass='RS',
 
         depth=25,
         spectral=False,
