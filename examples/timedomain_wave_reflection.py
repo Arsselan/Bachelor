@@ -26,7 +26,7 @@ if 'config' not in locals():
         source=fem1d.sources.NoSource()
     )
 
-if 0:
+if 1:
     config.ansatzType = 'Lagrange'
     config.p = 4
     config.mass = 'HRZ'
@@ -44,10 +44,10 @@ if 0:
 L = config.right - 2*config.extra
 tMax = L
 nt = 1200*20
-if config.p == 3:
+if config.p >= 3:
     nt = 12000*10*2
 # nt = int(tMax / 8e-6)
-nt = 1
+# nt = 1
 dt = tMax / nt
 
 # create study
@@ -64,8 +64,8 @@ print("Corrected time step size is %e" % dt)
 # solve sparse
 u0, u1 = fem1d.sources.applyGaussianInitialConditions(study.ansatz, dt, -0.6, config.stabilize)
 evalNodes = np.linspace(study.grid.left + config.extra, study.grid.right - config.extra, study.ansatz.nDof())
-# u, fullU, evalU, iMat = study.runCentralDifferenceMethod(dt, nt, u0, u1, evalNodes)
-u, fullU, evalU, iMat = study.runCentralDifferenceMethodLowMemory(dt, nt, u0, u1, evalNodes, [-dt, 0.0, tMax])
+u, fullU, evalU, iMat = study.runCentralDifferenceMethod(dt, nt, u0, u1, evalNodes)
+#u, fullU, evalU, iMat = study.runCentralDifferenceMethodLowMemory(dt, nt, u0, u1, evalNodes, [-dt, 0.0, tMax])
 
 
 def postProcess(animationSpeed=4):
@@ -84,6 +84,10 @@ def saveSnapshots():
     data[:, 2] = evalU[int(nt/2)]
     data[:, 3] = evalU[int(3*nt/4)]
     data[:, 4] = evalU[-1]
+
+    np.savetxt("wave_reflection_lagrange_p5_n51_dof205.dat", data)
+    #dataClipped = np.clip(data, -0.1, 2.1)
+    #np.savetxt("wave_reflection_lagrange_p3_snapshots_clipped_dt8e-6.dat", dataClipped)
 
     if dt == 8e-6:
         np.savetxt("wave_reflection_lagrange_p3_snapshots_dt8e-6.dat", data)

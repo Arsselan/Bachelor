@@ -12,8 +12,8 @@ extra = 0.0
 
 # method
 p = 3
-#ansatzType = 'Spline'
-ansatzType = 'InterpolatorySpline'
+ansatzType = 'Spline'
+#ansatzType = 'InterpolatorySpline'
 #ansatzType = 'Lagrange'
 
 continuity = 'p-1'

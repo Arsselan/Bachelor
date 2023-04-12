@@ -11,16 +11,16 @@ config = fem1d.StudyConfig(
     extra=0.2,
 
     # method
-    ansatzType='Spline',
+    #ansatzType='Spline',
     #ansatzType='InterpolatorySpline',
-    #ansatzType='Lagrange',
+    ansatzType='Lagrange',
     n=12,
     p=3,
 
     continuity='p-1',
     #mass='CON',
-    #mass='HRZ',
-    mass='RS',
+    mass='HRZ',
+    #mass='RS',
 
     depth=35,
     stabilize=0,
@@ -114,8 +114,9 @@ for p in allPs:
 
         # if n < 45 or n > 55: # lagrange zoom
         # if n != 52:
-        if n < 135 or n > 145: # spline zoom
+        #if n < 135 or n > 145: # spline zoom
         # if n != 139:
+        if n < 47 or n > 54:
             grid = fem1d.UniformGrid(config.left, config.right, config.n)
             ansatz = fem1d.createAnsatz(config.ansatzType, config.continuity, config.p, grid)
             dofs[i] = ansatz.nDof()
@@ -143,8 +144,8 @@ for p in allPs:
         if 1:
             eVector2, vIdx2 = fem1d.findEigenvector(study.v, "number", eigenvalue, iMatrix, study.system, vExact)
             eVector3, vIdx3 = fem1d.findEigenvector(study.v, "number", wIdx, iMatrix, study.system, vExact)
-            fem1d.plot(nodesEval, [vExact, eVector, eVector2, eVector3], ["exact", "nearest", "number", "nearest w"])
-
+            #fem1d.plot(nodesEval, [vExact, eVector, eVector2, eVector3], ["exact", "nearest", "number", "nearest w"])
+            fem1d.writeColumnFile("vector_n%d_j%d_k%d_dof%d.dat" % (n, wIdx, vIdx, study.system.nDof()), (nodesEval, vExact, eVector, eVector2, eVector3))
         MAT = (study.K.toarray() - study.w[wIdx]**2 * study.getMassMatrix().toarray())
         # MAT = (np.float32(study.K.toarray()) - study.w[wIdx]**2 * np.float32(study.getMassMatrix().toarray()))
 
