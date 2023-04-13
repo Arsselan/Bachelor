@@ -21,12 +21,14 @@ spectral = False
 dual = False
 
 selective = False
-#mass = 'CON'
-mass = 'RS'
+mass = 'CON'
+#mass = 'RS'
 #mass = 'HRZ'
 
 #eigenvalueSearch = 'nearest'
 eigenvalueSearch = 'number'
+#eigenvalueSearch = 'vector'
+#eigenvalueSearch = 'individual'
 
 depth = 40
 
@@ -171,12 +173,20 @@ eErrors = 0 * w
 for i in range(len(w)):
     if eigenvalueSearch == 'nearest':
         idx = fem1d.find_nearest_index(w, wExact[i])
+        widx = idx
     elif eigenvalueSearch == 'number':
         idx = fem1d.find_nearest_index(w, wSorted[i])
+        widx = idx
+    elif eigenvalueSearch == 'vector':
+        vEval[:, i], idx = fem1d.findEigenvector(v, 'nearest', i, iMatrix, system, vExact[:, i])
+        widx = idx
+    elif eigenvalueSearch == 'individual':
+        vEval[:, i], idx = fem1d.findEigenvector(v, 'nearest', i, iMatrix, system, vExact[:, i])
+        widx = fem1d.find_nearest_index(w, wExact[i])
     else:
         print("Error! Choose eigenvalueSearch 'nearest' or 'number'")
 
-    wNearest[i] = w[idx]
+    wNearest[i] = w[widx]
 
     vSorted[:, i] = v[:, idx]
     vEval[:, i] = iMatrix * system.getFullVector(vSorted[:, i])
@@ -201,13 +211,17 @@ for i in range(len(w)):
     if wExact[i] > 0:
         wErrors[i] = (wNearest[i] - wExact[i]) / wExact[i]
 
-    energy = squaredNorm(gvExact[:, i])
-    if energy > 0:
-        eErrors[i] = squaredNorm(gvEval[:, i] - gvExact[:, i]) / energy
-
     vNorm = squaredNorm(vExact[:, i])
     if vNorm > 0:
         vErrors[i] = squaredNorm(vExact[:, i] - vEval[:, i]) / vNorm
+        error = squaredNorm(vExact[:, i] + vEval[:, i]) / vNorm
+        if error < vErrors[i]:
+            vErrors[i] = error
+            vEval[:, i] *= -1
+
+    energy = squaredNorm(gvExact[:, i])
+    if energy > 0:
+        eErrors[i] = squaredNorm(gvEval[:, i] - gvExact[:, i]) / energy
 
 print("Potting...", flush=True)
 

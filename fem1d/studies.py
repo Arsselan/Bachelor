@@ -264,10 +264,12 @@ class EigenvalueStudy:
         return times, fullU, evalU, iMat
 
 
-def findEigenvalue(w, eigenvalueSearch, eigenvalue, wExact):
+def findEigenvalue(w, eigenvalueSearch, eigenvalue, wExact, exclude=[]):
     if eigenvalueSearch == 'nearest':
-        wNum = fem1d.find_nearest(w, wExact)
-        idx = fem1d.find_nearest_index(w, wExact)
+        wToSearch = w
+        wToSearch[exclude] = 1e60
+        wNum = fem1d.find_nearest(wToSearch, wExact)
+        idx = fem1d.find_nearest_index(wToSearch, wExact)
         print("w index = %d" % idx)
     elif eigenvalueSearch == 'number':
         wNum = w[eigenvalue]
@@ -281,18 +283,48 @@ def findEigenvalue(w, eigenvalueSearch, eigenvalue, wExact):
     return wNum, idx
 
 
-def findEigenvector(v, search, index, iMatrix, system, vExact):
+def findEigenvector(v, search, index, iMatrix, system, vExact, exclude=[]):
     if search == 'nearest':
         minIndex = 0
         minError = 1e10
         nEigen = v.shape[1]
         for idx in range(nEigen):
+            if idx in exclude:
+                continue
             # print(idx)
             if np.linalg.norm(np.imag(v[:, idx])) == 0:
                 eVector = iMatrix * system.getFullVector(np.real(v[:, idx]))
                 eVector = eVector / eVector[0]
                 eVector *= np.linalg.norm(vExact) / np.linalg.norm(eVector)
                 error = np.linalg.norm(eVector - vExact) / np.linalg.norm(vExact)
+                error2 = np.linalg.norm(-eVector - vExact) / np.linalg.norm(vExact)
+                if error2 < error:
+                    error = error2
+                    eVector *= -1
+                if error < minError:
+                    # plot(nodesEval, [vExact, eVector])
+                    minError = error
+                    minIndex = idx
+            else:
+                print("Warning! Found complex eigenvector %d." % idx)
+
+        print("v index = %d" % minIndex)
+    elif search == 'energy':
+        minIndex = 0
+        minError = 1e10
+        nEigen = v.shape[1]
+        for idx in range(nEigen):
+            if idx in exclude:
+                continue
+            # print(idx)
+            if np.linalg.norm(np.imag(v[:, idx])) == 0:
+                geVector = iMatrix * system.getFullVector(np.real(v[:, idx]))
+                geVector *= np.linalg.norm(vExact) / np.linalg.norm(geVector)
+                error = np.linalg.norm(geVector - vExact) / np.linalg.norm(vExact)
+                error2 = np.linalg.norm(-geVector - vExact) / np.linalg.norm(vExact)
+                if error2 < error:
+                    error = error2
+                    geVector *= -1
                 if error < minError:
                     # plot(nodesEval, [vExact, eVector])
                     minError = error
