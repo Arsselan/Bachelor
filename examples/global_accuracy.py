@@ -16,7 +16,7 @@ config = fem1d.StudyConfig(
     # ansatzType='Lagrange',
     # ansatzType = 'InterpolatorySpline'
     n=100,
-    p=3,
+    p=2,
     continuity='p-1',
     mass='RS',
 
@@ -37,10 +37,10 @@ selective = False
 
 #eigenvalueSearch = 'value'
 #eigenvalueSearch = 'value_exclude'
-#eigenvalueSearch = 'number'
+eigenvalueSearch = 'number'
 #eigenvalueSearch = 'vector'
 #eigenvalueSearch = 'vector_exclude'
-eigenvalueSearch = 'vector_energy'
+#eigenvalueSearch = 'vector_energy'
 #eigenvalueSearch = 'vector_energy_exclude'
 #eigenvalueSearch = 'individual'
 
@@ -224,26 +224,28 @@ ax2.set_ylim(axLimitLowY, axLimitHighY)
 ax1.set_title('Eigenvalues')
 ax2.set_title('Errors')
 
-ax1.plot(indices, np.sqrt(wExact), '-', label='reference', color='#000000')
-ax1.plot(indices, np.sqrt(wSorted), '-', label='numeric (number)')
-ax1.plot(indices, np.sqrt(wNearest), '--', label='numeric (taken)')
-ax1.plot(indices, wIndices, '-', label='value index')
-ax1.plot(indices, vIndices, '--', label='vector index')
+ax1.plot(indices, np.sqrt(wExact), '-', label='$\omega_i$ (reference)', color='#000000')
+ax1.plot(indices, np.sqrt(wSorted), '-', label='$\omega_i^h$ (by number)')
+ax1.plot(indices, np.sqrt(wNearest), '--', label='$\omega_j^h$ (by search)')
+ax1.plot(indices, wIndices, '-', label='value index $j$')
+ax1.plot(indices, vIndices, '--', label='vector index $k$')
 
-ax2.plot(indices[1:], wErrors[1:], '-', label='value error (valE)')
-ax2.plot(indices[1:], vErrors[1:], '-', label='l2 norm vector error (vecE)')
-ax2.plot(indices[1:], eErrors[1:], '-', label='energy norm vector error')
-ax2.plot(indices[1:], np.abs(wErrors[1:]) + vErrors[1:], '--', label='|valE + vecE|')
-ax2.plot(indices[1:], wErrors[1:] + vErrors[1:], '-.', label='valE + vecE')
+ax2.plot(indices[1:], wErrors[1:], '-', label='value error $e_{\omega_i}$')
+ax2.plot(indices[1:], vErrors[1:], '-', label='vector error $e_{\hat{u}_i} = \Vert \hat{u}_i - \hat{u}^h_k \Vert$')
+ax2.plot(indices[1:], eErrors[1:], '-', label='vector error $\Vert \hat{u}_i - \hat{u}^h_k \Vert_\mathrm{e}$')
+ax2.plot(indices[1:], np.abs(wErrors[1:]) + vErrors[1:], '--', label='$|  e_{\omega_i} + e_{\hat{u}_i} |$')
+ax2.plot(indices[1:], wErrors[1:] + vErrors[1:], '-.', label=' $e_{\omega_i} + e_{\hat{u}_i}$')
 
-ax1.legend()
-ax2.legend()
+ax1.legend(loc='upper left')
+ax2.legend(loc='upper left')
 
 title = config.ansatzType + ' C' + config.continuity + ' ' + config.mass + ' p=' + str(config.p) + ' n=' + str(config.n) + " d=" + str(config.extra) + " " + eigenvalueSearch
 figure.suptitle(title)
 
 ax1.set_xlabel('index')
 ax1.set_ylabel('eigenvalue')
+
+ax2.set_xlabel('index')
 
 fileBaseName = fem1d.getFileBaseNameAndCreateDir("results/global_accuracy/", title.replace(' ', '_'))
 
@@ -258,27 +260,30 @@ plt.show()
 
 nRows = 3
 nCols = 4
+plt.rcParams['figure.figsize'] = [15, 8]
 figure, ax = plt.subplots(nRows, nCols)
 plt.rcParams['axes.titleweight'] = 'bold'
 colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
-figure.tight_layout(pad=1)
+figure.tight_layout(pad=3)
+
 
 for j in range(nRows):
 
     for i in range(nCols):
         index = study.system.nDof() - len(study.system.zeroDof) - 3 + i
-        index = 78 + i + nCols*j
+        index = 62 + i + nCols*j
 
         ax[j][i].plot(nodesEval, vEval[:, index], '-', label='numeric')
         ax[j][i].plot(nodesEval, vExact[:, index], '--', label='reference')
 
         ax[j][i].set_xlabel('x')
         ax[j][i].set_ylabel('eigenvector')
-        ax[j][i].set_title('v ' + str(index+1) + ' / ' + str(study.system.nDof() - len(study.system.zeroDof)) + ' e=' + str(vErrors[index]))
+        # ax[j][i].set_title('v ' + str(index+1) + ' / ' + str(study.system.nDof() - len(study.system.zeroDof)) + ' e=' + str(vErrors[index]))
+        ax[j][i].set_title('i=' + str(index) + ', k=' + str(vIndices[index]))
 
         fem1d.writeColumnFile(fileBaseName + '_vector' + str(index+1) + '_p=' + str(p) + '.dat', (nodesEval, vEval[:, index], vExact[:, index]))
 
-plt.savefig(fileBaseName + '_high_vectors.pdf')
+plt.savefig(fileBaseName + '_high_vectors2.pdf')
 
 plt.show()
 
