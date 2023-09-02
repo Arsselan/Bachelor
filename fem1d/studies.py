@@ -91,10 +91,8 @@ class EigenvalueStudy:
             system = fem1d.TripletSystem(ansatz)
             matrices = fem1d.WaveEquationStandardMatrices(1.0, 1.0, config.source.fx)
             matrices = fem1d.WaveEquationLumpedMatrices(matrices)
-            print("EVS: %d" % config.eigenvalueStabilizationM)
 
             if config.eigenvalueStabilizationM > 0.0:
-                print("EVS!")
                 matrices = fem1d.WaveEquationStabilizedMatrices(matrices, config.eigenvalueStabilizationM)
             fem1d.computeSystemMatrices(system, ansatz, quadratureK, matrices)
 
