@@ -6,15 +6,15 @@ if 'config' not in locals():
         # problem
         left=0,
         right=1.2,
-        # extra=0.8*1.2/120,
-        extra=0.01495,
+        extra=0.8*1.2/120,
+        #extra=0.01495,
 
         # method
         ansatzType='Lagrange',
         # ansatzType = 'InterpolatorySpline',
+        # ansatzType='Spline',
         n=80,
         p=3,
-        # ansatzType='Spline',
         continuity='p-1',
         mass='CON',
 
@@ -26,7 +26,7 @@ if 'config' not in locals():
         source=fem1d.sources.NoSource()
     )
 
-if 1:
+if 0:
     config.ansatzType = 'Lagrange'
     config.p = 4
     config.mass = 'HRZ'

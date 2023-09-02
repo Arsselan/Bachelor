@@ -9,7 +9,11 @@ import fem1d
 
 class StudyConfig:
 
-    def __init__(self, left, right, extra, n, p, ansatzType, continuity, mass, depth, stabilize, spectral, dual, smartQuadrature, source):
+    def __init__(self, left, right, extra,
+                 n, p, ansatzType, continuity, mass, depth, stabilize,
+                 spectral, dual, smartQuadrature, source,
+                 eigenvalueStabilizationM=0.0, eigenvalueStabilizationK=0.0):
+
         self.left = left
         self.right = right
         self.extra = extra
@@ -26,6 +30,9 @@ class StudyConfig:
         self.dual = dual
         self.smartQuadrature = smartQuadrature
         self.source = source
+
+        self.eigenvalueStabilizationM = eigenvalueStabilizationM
+        self.eigenvalueStabilizationK = eigenvalueStabilizationK
 
         if ansatzType == 'Lagrange':
             self.continuity = '0'
@@ -71,14 +78,29 @@ class EigenvalueStudy:
 
         # create system
         if config.spectral:
-            system = fem1d.TripletSystem.fromTwoQuadratures(ansatz, quadratureM, quadratureK, config.source.fx)
-        else:
-            if config.dual:
-                print("DUAL! %e" % extra)
-                system = fem1d.TripletSystem.fromOneQuadratureWithDualBasis(ansatz, quadratureK, config.source.fx)
-            else:
-                system = fem1d.TripletSystem.fromOneQuadrature(ansatz, quadratureK, config.source.fx)
+            system = fem1d.TripletSystem(ansatz)
 
+            matrices = fem1d.WaveEquationStiffnessMatrixAndLoadVector(1.0, config.source.fx)
+            fem1d.computeSystemMatrices(system, ansatz, quadratureK, matrices)
+
+            matrices = fem1d.WaveEquationMassMatrix(1.0)
+            matrices = fem1d.WaveEquationLumpedMatrices(matrices)
+            fem1d.computeSystemMatrices(system, ansatz, quadratureM, matrices)
+
+        else:
+            system = fem1d.TripletSystem(ansatz)
+            matrices = fem1d.WaveEquationStandardMatrices(1.0, 1.0, config.source.fx)
+            matrices = fem1d.WaveEquationLumpedMatrices(matrices)
+            print("EVS: %d" % config.eigenvalueStabilizationM)
+
+            if config.eigenvalueStabilizationM > 0.0:
+                print("EVS!")
+                matrices = fem1d.WaveEquationStabilizedMatrices(matrices, config.eigenvalueStabilizationM)
+            fem1d.computeSystemMatrices(system, ansatz, quadratureK, matrices)
+
+        print("Matrix values: ", list(system.matrixValues.keys()))
+
+        # disable certain dof
         #    system.findZeroDof(-1e60, [0, 1, system.nDof()-2, system.nDof()-1])
         system.findZeroDof(0)
         if len(system.zeroDof) > 0:
@@ -86,9 +108,23 @@ class EigenvalueStudy:
             #print("Warning! There were %d zero dof found: " % len(system.zeroDof) + str(system.zeroDof))
 
         # get matrices
-        self.M, self.K, self.MHRZ, self.MRS = system.createSparseMatrices(returnHRZ=True, returnRS=True)
-        self.F = system.getReducedVector(system.F)
+        self.K = system.createSparseMatrix('K')
+        if config.mass == 'CON':
+            self.M = system.createSparseMatrix('M')
+        elif config.mass == 'RS':
+            self.M = system.createSparseMatrix('MRS')
+        elif config.mass == 'HRZ':
+            self.M = system.createSparseMatrix('MHRZ')
+        else:
+            print("Error! Choose mass 'CON' or 'HRZ' or 'RS'")
 
+        print("Matrices: ", list(system.matrices.keys()))
+        print("M: ", self.M.size)
+        print("K: ", self.K.size)
+
+        self.F = system.getReducedVector(system.vectors['F'])
+
+        # store stuff
         self.grid = grid
         self.domain = domain
         self.ansatz = ansatz
@@ -96,20 +132,14 @@ class EigenvalueStudy:
         self.quadratureK = quadratureK
         self.system = system
 
+        # prepare result fields
         self.w = 0
         self.v = 0
         self.nNegative = 0
         self.nComplex = 0
 
     def getMassMatrix(self):
-        if self.config.mass == 'CON':
-            return self.M
-        elif self.config.mass == 'HRZ':
-            return self.MHRZ
-        elif self.config.mass == 'RS':
-            return self.MRS
-        else:
-            print("Error! Choose mass 'CON' or 'HRZ' or 'RS'")
+        return self.M
 
     def runDense(self, computeEigenvectors=False, sort=False):
         M = self.getMassMatrix()
@@ -163,8 +193,7 @@ class EigenvalueStudy:
         return max(self.w)
 
     def computeLargestEigenvalueSparse(self):
-        M = self.getMassMatrix()
-        self.w = scipy.sparse.linalg.eigs(self.K, 1, M, which='LM', return_eigenvectors=False)
+        self.w = scipy.sparse.linalg.eigs(self.K, 1, self.M, which='LM', return_eigenvectors=False)
         self.w = np.sqrt(np.abs(self.w))
         return max(self.w)
 
@@ -173,95 +202,6 @@ class EigenvalueStudy:
         self.w = scipy.linalg.eigvals(self.K.toarray(), M.toarray())
         self.w = np.sqrt(np.abs(self.w))
         return max(self.w)
-
-    def runCentralDifferenceMethod(self, dt, nt, u0, u1, evalPos):
-        M = self.getMassMatrix()
-
-        # prepare result arrays
-        u = np.zeros((nt + 1, M.shape[0]))
-        fullU = np.zeros((nt + 1, self.ansatz.nDof()))
-        evalU = np.zeros((nt + 1, len(evalPos)))
-
-        times = np.zeros(nt + 1)
-
-        iMat = self.ansatz.interpolationMatrix(evalPos)
-
-        # set initial conditions
-        times[0] = -dt
-        times[1] = 0.0
-        u[0] = self.system.getReducedVector(u0)
-        u[1] = self.system.getReducedVector(u1)
-        for i in range(2):
-            fullU[i] = self.system.getFullVector(u[i])
-            evalU[i] = iMat * fullU[i]
-
-        print("Factorization ... ", flush=True)
-        factorized = scipy.sparse.linalg.splu(M)
-
-        print("Time integration ... ", flush=True)
-        for i in range(2, nt + 1):
-            times[i] = i * dt
-            u[i] = factorized.solve(
-                M * (2 * u[i - 1] - u[i - 2]) + dt ** 2 * (self.F * self.config.source.ft((i - 1) * dt) - self.K * u[i - 1]))
-
-            fullU[i] = self.system.getFullVector(u[i])
-            evalU[i] = iMat * fullU[i]
-
-        return u, fullU, evalU, iMat
-
-    def runCentralDifferenceMethodLowMemory(self, dt, nt, u0, u1, evalPos, evalTimes):
-        M = self.getMassMatrix()
-
-        nSavedTimeSteps = len(evalTimes)
-        print("Saving times ", evalTimes)
-        savedTimeStepIndex = 0
-
-        # prepare result arrays
-        u = np.zeros((3, M.shape[0]))
-        fullU = np.zeros((3, self.ansatz.nDof()))
-        evalU = np.zeros((nSavedTimeSteps, len(evalPos)))
-        times = np.zeros(nSavedTimeSteps)
-
-        iMat = self.ansatz.interpolationMatrix(evalPos)
-
-        # set initial conditions
-        u[0] = self.system.getReducedVector(u0)
-        u[1] = self.system.getReducedVector(u1)
-        fullU[0] = self.system.getFullVector(u[0])
-        fullU[1] = self.system.getFullVector(u[1])
-
-        time = -dt
-        if time >= evalTimes[savedTimeStepIndex]-0.5*dt:
-            evalU[savedTimeStepIndex] = iMat * fullU[0]
-            times[savedTimeStepIndex] = time
-            savedTimeStepIndex += 1
-            print("Stored time step %d, time %e" % (0, time))
-        time = 0.0
-        if time >= evalTimes[savedTimeStepIndex]-0.5*dt:
-            evalU[savedTimeStepIndex] = iMat * fullU[1]
-            times[savedTimeStepIndex] = time
-            savedTimeStepIndex += 1
-            print("Stored time step %d, time %e" % (1, time))
-
-        print("Factorization ... ", flush=True)
-        factorized = scipy.sparse.linalg.splu(M)
-
-        print("Time integration ... ", flush=True)
-        self.F = self.F * 0
-        for i in range(2, nt + 1):
-            time = i * dt
-            u[2] = factorized.solve(M * (2 * u[1] - u[0]) + dt ** 2 * (self.F * self.config.source.ft((i - 1) * dt) - self.K * u[1]))
-            if savedTimeStepIndex < nSavedTimeSteps and time >= evalTimes[savedTimeStepIndex]-0.5*dt:
-                fullU[2] = self.system.getFullVector(u[2])
-                evalU[savedTimeStepIndex] = iMat * fullU[2]
-                times[savedTimeStepIndex] = time
-                savedTimeStepIndex += 1
-                print("Stored time step %d, time %e" % (i, time))
-
-            u[0] = u[1]
-            u[1] = u[2]
-
-        return times, fullU, evalU, iMat
 
 
 def findEigenvalue(w, eigenvalueSearch, eigenvalue, wExact, exclude=[]):
@@ -355,7 +295,6 @@ def correctTimeStepSize(dt, tMax, critDeltaT, safety=0.9):
     return dt, nt
 
 
-# Plot animation
 def postProcessTimeDomainSolution(study, evalNodes, evalU, tMax, nt, animationSpeed=4):
     figure, ax = plt.subplots()
     ax.set_xlim(study.grid.left, study.grid.right)

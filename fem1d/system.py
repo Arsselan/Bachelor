@@ -2,251 +2,25 @@ import scipy.sparse
 import scipy.sparse.linalg
 
 from fem1d.ansatz import *
+from fem1d.matrices import *
 
 
 class TripletSystem:
-    def __init__(self, ansatz, valM, valMHRZ, valMRS, valK, row, col, F, minNonZeroMass=-1):
+    def __init__(self, ansatz):
         self.ansatz = ansatz
-        self.valM = valM
-        self.valMHRZ = valMHRZ
-        self.valMRS = valMRS
-        self.valK = valK
-        self.row = row
-        self.col = col
-        self.F = F
+
+        self.row = np.zeros(0)
+        self.col = np.zeros(0)
+
+        self.matrixValues = {}
+        self.matrices = {}
+        self.vectors = {}
 
         self.zeroDof = []
         self.dofMap = []
         self.nonZeroDof = []
 
-        self.minNonZeroMass = minNonZeroMass
-
-    @classmethod
-    def fromOneQuadrature(cls, ansatz, quadrature, bodyLoad=lambda x: 0.0, selectiveLumping=False):
-
-        p = ansatz.p
-        grid = ansatz.grid
-        n = grid.nElements
-        alpha = quadrature.domain.alpha
-
-        nShapesPerElement = ansatz.nShapesPerElement()
-        nVal = nShapesPerElement * nShapesPerElement
-        row = np.zeros(nVal * n, dtype=np.uint)
-        col = np.zeros(nVal * n, dtype=np.uint)
-        valM = np.zeros(nVal * n)
-        valMRS = np.zeros(nVal * n)
-        valMHRZ = np.zeros(nVal * n)
-        valK = np.zeros(nVal * n)
-        F = np.zeros((ansatz.nDof(),))
-
-        minMass = float('inf')
-        # onepercent = int(n / 100)
-        for iElement in range(n):
-            # if iElement % onepercent == 0:
-            #    print("%d / %d" % (iElement, n))
-
-            lm = ansatz.locationMap(iElement)
-            Me = np.zeros((nShapesPerElement, nShapesPerElement))
-            Ke = np.zeros((nShapesPerElement, nShapesPerElement))
-            Fe = np.zeros(nShapesPerElement)
-            points = quadrature.points[iElement]
-            weights = quadrature.weights[iElement]
-
-            mass = 0
-            for j in range(len(points)):
-                shapes = ansatz.evaluate(points[j], 1, iElement)
-                N = np.asarray(shapes[0])
-                B = np.asarray(shapes[1])
-                Me += np.outer(N, N) * weights[j] * alpha(points[j])
-                Ke += np.outer(B, B) * weights[j] * alpha(points[j])
-                Fe += N * bodyLoad(points[j]) * weights[j] * alpha(points[j])
-                mass += weights[j] * alpha(points[j])
-
-            eSlice = slice(nVal * iElement, nVal * (iElement + 1))
-            row[eSlice] = np.broadcast_to(lm, (nShapesPerElement, nShapesPerElement)).T.ravel()
-            col[eSlice] = np.broadcast_to(lm, (nShapesPerElement, nShapesPerElement)).ravel()
-            valK[eSlice] = Ke.ravel()
-            valM[eSlice] = Me.ravel()
-            F[lm] += Fe
-
-            if minMass > mass > 0:
-                minMass = mass
-                minMassElement = iElement
-
-            if selectiveLumping is False or len(quadrature.cuts[iElement]) > 0:
-            #if len(quadrature.cuts[iElement]) < 0:
-                diagMe = np.zeros(Me.shape)
-                for iEntry in range(Me.shape[0]):
-                    diagMe[iEntry, iEntry] = sum(Me[iEntry, :])
-                valMRS[eSlice] = diagMe.ravel()
-                # print("Lump error RS: %e" % np.linalg.norm(diagMe - Me))
-
-                diagMe = np.zeros(Me.shape)
-                sumMe = 0
-                for iEntry in range(Me.shape[0]):
-                    diagMe[iEntry, iEntry] = Me[iEntry, iEntry]
-                    sumMe += Me[iEntry, iEntry]
-                if sumMe > 0:
-                    c = mass * 1.0 / sumMe
-                else:
-                    c = 0
-                diagMe = diagMe * c
-                valMHRZ[eSlice] = diagMe.ravel()
-            else:
-                valMRS[eSlice] = Me.ravel()
-                valMHRZ[eSlice] = Me.ravel()
-
-        return cls(ansatz, valM, valMHRZ, valMRS, valK, row, col, F, minMass)
-
-    @classmethod
-    def fromTwoQuadratures(cls, ansatz, quadratureM, quadratureK, bodyLoad=lambda x: 0.0, selectiveLumping=False):
-
-        p = ansatz.p
-        grid = ansatz.grid
-        n = grid.nElements
-        alpha = quadratureM.domain.alpha
-
-        nShapesPerElement = ansatz.nShapesPerElement()
-        nVal = nShapesPerElement * nShapesPerElement
-        row = np.zeros(nVal * n, dtype=np.uint)
-        col = np.zeros(nVal * n, dtype=np.uint)
-        valM = np.zeros(nVal * n)
-        valMRS = np.zeros(nVal * n)
-        valMHRZ = np.zeros(nVal * n)
-        valK = np.zeros(nVal * n)
-        F = np.zeros((ansatz.nDof(),))
-
-        for iElement in range(n):
-            lm = ansatz.locationMap(iElement)
-            # print("ELEMENT " + str(i) + "lm: " + str(lm))
-            Me = np.zeros((nShapesPerElement, nShapesPerElement))
-            Ke = np.zeros((nShapesPerElement, nShapesPerElement))
-            Fe = np.zeros(nShapesPerElement)
-            pointsM = quadratureM.points[iElement]
-            weightsM = quadratureM.weights[iElement]
-            pointsK = quadratureK.points[iElement]
-            weightsK = quadratureK.weights[iElement]
-            for j in range(len(pointsM)):
-                # print("M p: " + str(j) + " " + str(pointsM[j]))
-                shapes = ansatz.evaluate(pointsM[j], 1, iElement)
-                N = np.asarray(shapes[0])
-                B = np.asarray(shapes[1])
-                Me += np.outer(N, N) * weightsM[j] * alpha(pointsM[j])
-
-            mass = 0
-            for j in range(len(pointsK)):
-                # print("K p: " + str(j) + " " + str(pointsK[j]))
-                shapes = ansatz.evaluate(pointsK[j], 1, iElement)
-                N = np.asarray(shapes[0])
-                B = np.asarray(shapes[1])
-                Ke += np.outer(B, B) * weightsK[j] * alpha(pointsK[j])
-                Fe += N * bodyLoad(pointsK[j]) * weightsK[j] * alpha(pointsK[j])
-                mass += weightsK[j] * alpha(pointsK[j])
-
-            eSlice = slice(nVal * iElement, nVal * (iElement + 1))
-            row[eSlice] = np.broadcast_to(lm, (nShapesPerElement, nShapesPerElement)).T.ravel()
-            col[eSlice] = np.broadcast_to(lm, (nShapesPerElement, nShapesPerElement)).ravel()
-            valK[eSlice] = Ke.ravel()
-            valM[eSlice] = Me.ravel()
-            F[lm] += Fe
-
-            diagMe = np.zeros(Me.shape)
-            for iEntry in range(Me.shape[0]):
-                diagMe[iEntry, iEntry] = sum(Me[iEntry, :])
-            valMRS[eSlice] = diagMe.ravel()
-            # print("Lump error: %e" % np.linalg.norm(diagMe - Me))
-
-            diagMe = np.zeros(Me.shape)
-            sumMe = 0
-            for iEntry in range(Me.shape[0]):
-                diagMe[iEntry, iEntry] = Me[iEntry, iEntry]
-                sumMe += Me[iEntry, iEntry]
-            if sumMe > 0:
-                c = mass * 1 / sumMe
-            else:
-                c = 0
-            diagMe = diagMe * c
-            valMHRZ[eSlice] = diagMe.ravel()
-
-        return cls(ansatz, valM, valMHRZ, valMRS, valK, row, col, F)
-
-    @classmethod
-    def fromOneQuadratureWithDualBasis(cls, ansatz, quadrature, bodyLoad=lambda x: 0.0, selectiveLumping=False):
-
-        grid = ansatz.grid
-        n = grid.nElements
-        alpha = quadrature.domain.alpha
-
-        nShapesPerElement = ansatz.nShapesPerElement()
-        nVal = nShapesPerElement * nShapesPerElement
-        row = np.zeros(nVal * n, dtype=np.uint)
-        col = np.zeros(nVal * n, dtype=np.uint)
-        valM = np.zeros(nVal * n)
-        valMRS = np.zeros(nVal * n)
-        valMHRZ = np.zeros(nVal * n)
-        valK = np.zeros(nVal * n)
-        F = np.zeros((ansatz.nDof(),))
-
-        for iElement in range(n):
-            lm = ansatz.locationMap(iElement)
-            Me = np.zeros((nShapesPerElement, nShapesPerElement))
-            Ke = np.zeros((nShapesPerElement, nShapesPerElement))
-            Fe = np.zeros(nShapesPerElement)
-            points = quadrature.points[iElement]
-            weights = quadrature.weights[iElement]
-
-            mass = 0
-            for j in range(len(points)):
-                shapes = ansatz.evaluate(points[j], 1, iElement)
-                N = np.asarray(shapes[0])
-                B = np.asarray(shapes[1])
-                Me += np.outer(N, N) * weights[j] * alpha(points[j])
-                Ke += np.outer(B, B) * weights[j] * alpha(points[j])
-                Fe += N * bodyLoad(points[j]) * weights[j] * alpha(points[j])
-                mass += weights[j] * alpha(points[j])
-
-            # row summing
-            MeRS = np.zeros(Me.shape)
-            for iEntry in range(Me.shape[0]):
-                MeRS[iEntry, iEntry] = sum(Me[iEntry, :])
-
-            # hrz lumping
-            MeHRZ = np.zeros(Me.shape)
-            sumMe = 0
-            for iEntry in range(Me.shape[0]):
-                MeHRZ[iEntry, iEntry] = Me[iEntry, iEntry]
-                sumMe += Me[iEntry, iEntry]
-            if sumMe > 0:
-                c = mass * 1 / sumMe
-            else:
-                c = 0
-            MeHRZ = MeHRZ * c
-
-            # dual matrices
-            if mass > 0:
-                dualMat = np.linalg.inv(Me).dot(MeRS)
-                #check = np.linalg.norm(Me.dot(dualMat)-MeRS)
-                #print("Check: %e" % check)
-                Me = MeRS
-                Ke = Ke.dot(dualMat)
-                Fe = Fe.dot(dualMat)
-
-            # assembly
-            eSlice = slice(nVal * iElement, nVal * (iElement + 1))
-            row[eSlice] = np.broadcast_to(lm, (nShapesPerElement, nShapesPerElement)).T.ravel()
-            col[eSlice] = np.broadcast_to(lm, (nShapesPerElement, nShapesPerElement)).ravel()
-            valK[eSlice] = Ke.ravel()
-            valM[eSlice] = Me.ravel()
-            F[lm] += Fe
-
-            if selectiveLumping is False or len(quadrature.cuts[iElement]) > 0:
-                valMRS[eSlice] = MeRS.ravel()
-                valMHRZ[eSlice] = MeHRZ.ravel()
-            else:
-                valMRS[eSlice] = Me.ravel()
-                valMHRZ[eSlice] = Me.ravel()
-
-        return cls(ansatz, valM, valMHRZ, valMRS, valK, row, col, F)
+        self.minNonZeroMass = 0
 
     def nDof(self):
         return int(max(self.row) + 1)
@@ -257,7 +31,7 @@ class TripletSystem:
         nVals = len(self.row)
         for i in range(nVals):
             iRow = self.row[i]
-            diag[iRow] += self.valMHRZ[i]
+            diag[iRow] += self.matrixValues['MHRZ'][i]
         self.zeroDof = []
         self.dofMap = [0] * nDof
         nNonZeroDof = 0
@@ -290,22 +64,15 @@ class TripletSystem:
             col = self.col
         return row, col
 
-    def createSparseMatrices(self, returnHRZ=False, returnRS=False):
+#    def createSparseMatrices(self):
+#        row, col = self.getReducedRowAndCol()
+#        for key in self.matrices.keys():
+#            self.matrices[key] = scipy.sparse.coo_matrix((self.matrixValues[key], (row, col))).tocsc()
+
+    def createSparseMatrix(self, name):
         row, col = self.getReducedRowAndCol()
-        M = scipy.sparse.coo_matrix((self.valM, (row, col))).tocsc()
-        K = scipy.sparse.coo_matrix((self.valK, (row, col))).tocsc()
-        if returnHRZ is False and returnRS is False:
-            return M, K
-        elif returnHRZ is True and returnRS is False:
-            MHRZ = scipy.sparse.coo_matrix((self.valMHRZ, (row, col))).tocsc()
-            return M, K, MHRZ
-        elif returnHRZ is False and returnRS is True:
-            MRS = scipy.sparse.coo_matrix((self.valMRS, (row, col))).tocsc()
-            return M, K, MRS
-        else:
-            MHRZ = scipy.sparse.coo_matrix((self.valMHRZ, (row, col))).tocsc()
-            MRS = scipy.sparse.coo_matrix((self.valMRS, (row, col))).tocsc()
-            return M, K, MHRZ, MRS
+        self.matrices[name] = scipy.sparse.coo_matrix((self.matrixValues[name], (row, col))).tocsc()
+        return self.matrices[name]
 
     def getFullVector(self, reducedVector):
         fullVector = np.zeros(self.ansatz.nDof())

@@ -5,6 +5,101 @@ import scipy.sparse.linalg
 import fem1d
 
 
+# 1
+def runCentralDifferenceMethod(study, dt, nt, u0, u1, evalPos):
+    M = study.getMassMatrix()
+
+    # prepare result arrays
+    u = np.zeros((nt + 1, M.shape[0]))
+    fullU = np.zeros((nt + 1, study.ansatz.nDof()))
+    evalU = np.zeros((nt + 1, len(evalPos)))
+
+    times = np.zeros(nt + 1)
+
+    iMat = study.ansatz.interpolationMatrix(evalPos)
+
+    # set initial conditions
+    times[0] = -dt
+    times[1] = 0.0
+    u[0] = study.system.getReducedVector(u0)
+    u[1] = study.system.getReducedVector(u1)
+    for i in range(2):
+        fullU[i] = study.system.getFullVector(u[i])
+        evalU[i] = iMat * fullU[i]
+
+    print("Factorization ... ", flush=True)
+    factorized = scipy.sparse.linalg.splu(M)
+
+    print("Time integration ... ", flush=True)
+    for i in range(2, nt + 1):
+        times[i] = i * dt
+        u[i] = factorized.solve(
+            M * (2 * u[i - 1] - u[i - 2]) + dt ** 2 * (
+                        study.F * study.config.source.ft((i - 1) * dt) - study.K * u[i - 1]))
+
+        fullU[i] = study.system.getFullVector(u[i])
+        evalU[i] = iMat * fullU[i]
+
+    return u, fullU, evalU, iMat
+
+
+# 1
+def runCentralDifferenceMethodLowMemory(study, dt, nt, u0, u1, evalPos, evalTimes):
+    M = study.getMassMatrix()
+
+    nSavedTimeSteps = len(evalTimes)
+    print("Saving times ", evalTimes)
+    savedTimeStepIndex = 0
+
+    # prepare result arrays
+    u = np.zeros((3, M.shape[0]))
+    fullU = np.zeros((3, study.ansatz.nDof()))
+    evalU = np.zeros((nSavedTimeSteps, len(evalPos)))
+    times = np.zeros(nSavedTimeSteps)
+
+    iMat = study.ansatz.interpolationMatrix(evalPos)
+
+    # set initial conditions
+    u[0] = study.system.getReducedVector(u0)
+    u[1] = study.system.getReducedVector(u1)
+    fullU[0] = study.system.getFullVector(u[0])
+    fullU[1] = study.system.getFullVector(u[1])
+
+    time = -dt
+    if time >= evalTimes[savedTimeStepIndex] - 0.5 * dt:
+        evalU[savedTimeStepIndex] = iMat * fullU[0]
+        times[savedTimeStepIndex] = time
+        savedTimeStepIndex += 1
+        print("Stored time step %d, time %e" % (0, time))
+    time = 0.0
+    if time >= evalTimes[savedTimeStepIndex] - 0.5 * dt:
+        evalU[savedTimeStepIndex] = iMat * fullU[1]
+        times[savedTimeStepIndex] = time
+        savedTimeStepIndex += 1
+        print("Stored time step %d, time %e" % (1, time))
+
+    print("Factorization ... ", flush=True)
+    factorized = scipy.sparse.linalg.splu(M)
+
+    print("Time integration ... ", flush=True)
+    study.F = study.F * 0
+    for i in range(2, nt + 1):
+        time = i * dt
+        u[2] = factorized.solve(
+            M * (2 * u[1] - u[0]) + dt ** 2 * (study.F * study.config.source.ft((i - 1) * dt) - study.K * u[1]))
+        if savedTimeStepIndex < nSavedTimeSteps and time >= evalTimes[savedTimeStepIndex] - 0.5 * dt:
+            fullU[2] = study.system.getFullVector(u[2])
+            evalU[savedTimeStepIndex] = iMat * fullU[2]
+            times[savedTimeStepIndex] = time
+            savedTimeStepIndex += 1
+            print("Stored time step %d, time %e" % (i, time))
+
+        u[0] = u[1]
+        u[1] = u[2]
+
+    return times, fullU, evalU, iMat
+
+
 # 2
 def runCentralDifferenceMethodStrongContactBoundaryFitted(study, dt, nt, u0, u1, evalPos):
     if study.config.extra != 0.0:
