@@ -86,7 +86,6 @@ class EigenvalueStudy:
             matrices = fem1d.WaveEquationMassMatrix(1.0)
             matrices = fem1d.WaveEquationLumpedMatrices(matrices)
             fem1d.computeSystemMatrices(system, ansatz, quadratureM, matrices)
-
         else:
             system = fem1d.TripletSystem(ansatz)
             matrices = fem1d.WaveEquationStandardMatrices(1.0, 1.0, config.source.fx)
@@ -108,17 +107,21 @@ class EigenvalueStudy:
         # get matrices
         self.K = system.createSparseMatrix('K')
         if config.mass == 'CON':
-            self.M = system.createSparseMatrix('M')
+            if config.eigenvalueStabilizationM > 0:
+                self.M = system.createSparseMatrix('modM')
+            else:
+                self.M = system.createSparseMatrix('M')
         elif config.mass == 'RS':
             self.M = system.createSparseMatrix('MRS')
         elif config.mass == 'HRZ':
-            self.M = system.createSparseMatrix('MHRZ')
+            if config.eigenvalueStabilizationM > 0:
+                self.M = system.createSparseMatrix('modMHRZ')
+            else:
+                self.M = system.createSparseMatrix('MHRZ')
         else:
             print("Error! Choose mass 'CON' or 'HRZ' or 'RS'")
 
         print("Matrices: ", list(system.matrices.keys()))
-        print("M: ", self.M.size)
-        print("K: ", self.K.size)
 
         self.F = system.getReducedVector(system.vectors['F'])
 

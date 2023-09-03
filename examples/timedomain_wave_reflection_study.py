@@ -7,6 +7,8 @@ extras = list(np.linspace(0, 0.099, ne)) + list(np.linspace(0.1, 0.199, ne)) + l
     0.3] + list(np.linspace(0.3, 0.399, ne)) + [0.4]
 extras = np.array(extras) * 0.1 * 0.5
 
+#extras = [1.495e-2]
+
 #extras = [5e-3]
 
 #extras = np.linspace(1.4455e-2, 1.495e-02, 11)
@@ -45,9 +47,12 @@ config = fem1d.StudyConfig(
     depth=35,
     spectral=False,
     dual=False,
-    stabilize=1e-8,
+    stabilize=0,
     smartQuadrature=True,
-    source=fem1d.sources.NoSource()
+
+    source=fem1d.sources.NoSource(),
+
+    eigenvalueStabilizationM=0
 )
 
 masses = ['CON', 'HRZ', 'RS']
@@ -66,7 +71,7 @@ for mass in masses:
     nts = []
     nStudies = len(extras)
     for i in range(nStudies):
-        print("Extra: %e (%d/%d)" % (extras[i], i, len(extras)))
+        print("\nExtra: %e (%d/%d)" % (extras[i], i, len(extras)))
 
         config.extra = extras[i]
         k = eval(config.continuity)
@@ -109,5 +114,8 @@ for mass in masses:
     title += "_p%d" % config.p
     title += "_n%d" % config.n
     title += "_dof%d" % study.ansatz.nDof()
-    filename = fem1d.getFileBaseNameAndCreateDir("results/timedomain_wave_reflection_study_" + str(config.stabilize) + "/max_dt/", title)
+    title += "_alp%e" % config.stabilize
+    title += "_eps%e" % config.eigenvalueStabilizationM
+    filename = fem1d.getFileBaseNameAndCreateDir("results/timedomain_wave_reflection_study"
+                                                 + "/const_dt/", title)
     np.savetxt(filename + ".dat", data)

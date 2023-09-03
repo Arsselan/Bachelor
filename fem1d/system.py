@@ -46,10 +46,9 @@ class TripletSystem:
 
         for i in range(nVals):
             if self.row[i] in self.zeroDof or self.col[i] in self.zeroDof:
-                self.valM[i] = 0
-                self.valMHRZ[i] = 0
-                self.valMRS[i] = 0
-                self.valK[i] = 0
+                for key in self.matrixValues.keys():
+                    if not key == "modM":
+                        self.matrixValues[key][i] = 0
 
     def getReducedRowAndCol(self):
         if hasattr(self, 'dofMap'):

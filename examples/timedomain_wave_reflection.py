@@ -23,7 +23,10 @@ if 'config' not in locals():
         dual=False,
         stabilize=0,
         smartQuadrature=True,
-        source=fem1d.sources.NoSource()
+
+        source=fem1d.sources.NoSource(),
+
+        eigenvalueStabilizationM=1e-4
     )
 
 if 0:
@@ -44,7 +47,7 @@ if 0:
 L = config.right - 2*config.extra
 tMax = L
 nt = 1200*20
-if config.p >= 3:
+if config.p == 30:
     nt = 12000*10*2
 # nt = int(tMax / 8e-6)
 # nt = 1
@@ -58,13 +61,13 @@ w = study.computeLargestEigenvalueSparse()
 critDeltaT = 2 / abs(w)
 print("Critical time step size is %e" % critDeltaT)
 print("Chosen time step size is %e" % dt)
-dt, nt = fem1d.correctTimeStepSize(dt, tMax, critDeltaT, 0.9)
+dt, nt = fem1d.correctTimeStepSize(dt, tMax, critDeltaT)
 print("Corrected time step size is %e" % dt)
 
 # solve sparse
 u0, u1 = fem1d.sources.applyGaussianInitialConditions(study.ansatz, dt, -0.6, config.stabilize)
 evalNodes = np.linspace(study.grid.left + config.extra, study.grid.right - config.extra, study.ansatz.nDof())
-u, fullU, evalU, iMat = study.runCentralDifferenceMethod(dt, nt, u0, u1, evalNodes)
+u, fullU, evalU, iMat = fem1d.runCentralDifferenceMethod(study, dt, nt, u0, u1, evalNodes)
 #u, fullU, evalU, iMat = study.runCentralDifferenceMethodLowMemory(dt, nt, u0, u1, evalNodes, [-dt, 0.0, tMax])
 
 
