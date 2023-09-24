@@ -47,7 +47,7 @@ if 0:
 L = config.right - 2*config.extra
 tMax = L
 nt = 1200*20
-if config.p == 30:
+if config.p == 3:
     nt = 12000*10*2
 # nt = int(tMax / 8e-6)
 # nt = 1

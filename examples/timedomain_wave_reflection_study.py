@@ -36,8 +36,8 @@ config = fem1d.StudyConfig(
     extra=0,
 
     # method
-    #ansatzType='Lagrange',
-    ansatzType='InterpolatorySpline',
+    ansatzType='Lagrange',
+    #ansatzType='InterpolatorySpline',
     # ansatzType='Spline',
     n=n,
     p=p,
@@ -47,20 +47,20 @@ config = fem1d.StudyConfig(
     depth=35,
     spectral=False,
     dual=False,
-    stabilize=0,
+    stabilize=0.0,
     smartQuadrature=True,
 
     source=fem1d.sources.NoSource(),
 
-    eigenvalueStabilizationM=0
+    eigenvalueStabilizationM=1e-4
 )
 
-masses = ['CON', 'HRZ', 'RS']
+masses = ['CON', 'HRZ']
 # masses = ['RS']
 #masses = ['CON']
 
 for mass in masses:
-    print(mass)
+    print("\n\n mass: " + mass)
 
     config.mass = mass
 
