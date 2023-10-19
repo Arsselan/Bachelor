@@ -118,7 +118,6 @@ for iElement in range(study.config.n):
     qpData[qpRange, 1] = epsPla[iElement]
     for iPoint in qpRange:
         if qpData[iPoint, 0] < left or qpData[iPoint, 0] > right:
-            print("Hi!")
             qpData[iPoint, 1] = 0.0
             epsPla[iElement][iPoint-qpRange.start] = 0.0
 title2 = config.ansatzType + " n%d" % config.n + " p%d" % config.p + " " + config.mass + " dt%e" % dt + " eps"
