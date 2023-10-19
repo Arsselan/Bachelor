@@ -413,7 +413,9 @@ def runCentralDifferenceMethodWeakContactImmersedLowMemory(study, dt, nt, u0, u1
 
 
 # 5
-def runCentralDifferenceMethodWeakContactImmersedLowMemoryPlastic(study, c, epsYield, hardening, dt, nt, u0, u1, evalPos, earliestLumping=0, dampingM=0, dampingK=0):
+def runCentralDifferenceMethodWeakContactImmersedLowMemoryPlastic(study, c, epsYield, hardening, dt, nt, u0, u1, evalPos,
+                                                                  computeExternalLoad,
+                                                                  earliestLumping=0, dampingM=0, dampingK=0):
     M = study.getMassMatrix()
 
     if earliestLumping > 0:
@@ -428,13 +430,6 @@ def runCentralDifferenceMethodWeakContactImmersedLowMemoryPlastic(study, c, epsY
     # compute interpolation matrix
     iMat = study.ansatz.interpolationMatrix(evalPos)
 
-    # compute Neumann vectors
-    leftF = study.system.getReducedVector(fem1d.createNeumannVector(study.system, [evalPos[0]], [1], [1]))
-    rightF = study.system.getReducedVector(fem1d.createNeumannVector(study.system, [evalPos[-1]], [1], [1]))
-
-    leftFactor = 0
-    rightFactor = 0
-
     # set initial conditions
     times[0] = -dt
     times[1] = 0.0
@@ -444,6 +439,10 @@ def runCentralDifferenceMethodWeakContactImmersedLowMemoryPlastic(study, c, epsY
         fullU = study.system.getFullVector(u[i])
         evalU[i] = iMat * fullU
 
+    # compute initial external load
+    externalLoad = computeExternalLoad(-dt, u[1], u[0])
+
+    # internal variables
     epsPla = fem1d.createQuadraturePointData(study.quadratureK)
     alphaPla = fem1d.createQuadraturePointData(study.quadratureK)
 
@@ -469,15 +468,6 @@ def runCentralDifferenceMethodWeakContactImmersedLowMemoryPlastic(study, c, epsY
 
         times[i] = (i - 1) * dt
 
-        if 0:
-            loadTime = times[i]*0.1
-            if loadTime < 0.4:
-                rightFactor = loadTime*1e3
-            elif 0.5 > loadTime >= 0.4:
-                rightFactor = 0.4 * 1e3
-            else:
-                rightFactor = 0.4 * 1e3 - (loadTime - 0.5) * 1e3
-
         # solve
         if 0:
             internalLoad = study.K * u[1]
@@ -485,7 +475,7 @@ def runCentralDifferenceMethodWeakContactImmersedLowMemoryPlastic(study, c, epsY
             #internalLoad = study.system.getReducedVector(fem1d.computePlasticInnerLoadVector(c, epsYield, hardening, study.ansatz, study.quadratureK, fullU, epsPla))
             internalLoad = study.system.getReducedVector(fem1d.computePlasticInnerLoadVectorIsotropic(c, epsYield, hardening, study.ansatz, study.quadratureK, fullU, epsPla, alphaPla))
 
-        u[2] = factorized.solve(M * (2 * u[1] - u[0]) + C * u[0] + dt ** 2 * (leftFactor * leftF + rightFactor * rightF - internalLoad))
+        u[2] = factorized.solve(M * (2 * u[1] - u[0]) + C * u[0] + dt ** 2 * (externalLoad - internalLoad))
 
         if 0:
             velocity = 1
@@ -497,13 +487,8 @@ def runCentralDifferenceMethodWeakContactImmersedLowMemoryPlastic(study, c, epsY
         fullU = study.system.getFullVector(u[2])
         evalU[i] = iMat * fullU
 
-        # check penetration
-        penaltyFactor = 1e6
-        if 1:
-            if evalU[i][0] < 0:  # and evalU[i][0] - evalU[i-1][0] < 0:
-                leftFactor = penaltyFactor * (-evalU[i][0])
-            else:
-                leftFactor = 0
+        # compute external load
+        externalLoad = computeExternalLoad(times[i], evalU[i], evalU[i-1])
 
         # update solution vectors
         u[0] = u[1]

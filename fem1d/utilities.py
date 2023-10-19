@@ -15,7 +15,7 @@ def find_nearest_index(array, value):
     return idx
 
 
-def plot(ptx, pty, labels=[]):
+def plot(ptx, pty, labels=[], axes=[]):
     figure, ax = plt.subplots()
     if len(labels) == 0:
         for i in range(len(pty)):
@@ -24,6 +24,10 @@ def plot(ptx, pty, labels=[]):
         for i in range(len(pty)):
             ax.plot(ptx, pty[i], label=labels[i])
         plt.legend()
+    if len(axes) > 0:
+        plt.xlabel(axes[0])
+    if len(axes) > 1:
+        plt.ylabel(axes[1])
     plt.show()
 
 

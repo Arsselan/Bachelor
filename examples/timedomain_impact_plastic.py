@@ -7,37 +7,43 @@ from scipy.fftpack import fft
 
 from context import fem1d
 
+outputDir = "results/crash_test_plastic_new_elastic/"
+
 # create config if not already present (may be constructed from calling script)
 if 'config' not in locals():
     config = fem1d.StudyConfig(
         # problem
         left=0,
         right=1.0,
-        extra=0,
+        extra=0.05,
 
         # method
         #ansatzType='Lagrange',
         ansatzType='Spline',
         #ansatzType='InterpolatorySpline',
-        n=5,
-        p=1,
+        n=12,
+        p=2,
 
         continuity='p-1',
-        mass='RS',
+        mass='CON',
 
-        depth=25,
+        depth=50,
         spectral=False,
         dual=False,
         stabilize=0,
         smartQuadrature=True,
         source=fem1d.sources.NoSource(),
-        fixedDof=[0]
+        fixedDof=[]
     )
+
+p = config.p
+config.n = config.n * (eval(config.continuity) + 1)
+print("Elements: %d" % config.n)
 
 # create study
 study = fem1d.EigenvalueStudy(config)
-epsYield = 0.0002
-hardening = 0.1
+epsYield = 0.00004
+hardening = 0.00005
 E = 5e8
 rho = 5e2
 c = np.sqrt(E / rho)
@@ -46,8 +52,8 @@ study.K *= E / rho
 
 # time stuff
 L = config.right - 2*config.extra
-tMax = 10.0 * 2.0 * 10
-nt = 100000 * 1.0
+tMax = 0.1
+nt = int(20000)
 dt = tMax / nt
 
 # compute critical time step size
@@ -60,43 +66,64 @@ print("Corrected time step size is %e" % dt)
 
 #exit(1)
 
-
 # apply initial conditions
-u0, u1 = fem1d.sources.applyConstantVelocityInitialConditions(study.ansatz, dt, 0.0)
+vInitial = 5
+print("Initial velocity: %e" % vInitial)
+u0, u1 = fem1d.sources.applyConstantVelocityInitialConditions(study.ansatz, dt, -vInitial)
 
 # define evaluation positions
 left = study.grid.left + config.extra
 right = study.grid.right - config.extra
-evalNodes = np.linspace(left, right, study.ansatz.nDof())
+#evalNodes = np.linspace(left, right, study.ansatz.nDof())
+evalNodes = np.linspace(left, right, 96*4)
 #evalNodes = np.array([left, left+1e-6, 0.5*(right-left), right-1e-6, right])
 
-# compute Neumann vectors
-leftF = study.system.getReducedVector(fem1d.createNeumannVector(study.system, [evalNodes[0]], [1], [1]))
+# external load
 rightF = study.system.getReducedVector(fem1d.createNeumannVector(study.system, [evalNodes[-1]], [1], [1]))
-
-leftFactor = 0
-
-
-def computeRightFactor(time):
-    loadTime = time * 0.1
-    # rightFactor = 0.5 * (1 - np.cos(2 * np.pi * time / 5)) * 1e3 * 0.5
-    rightFactor = - 0.5 * np.cos(2 * np.pi * loadTime / 5) * 1e3 * loadTime*loadTime * 0.01
-    #rightFactor = 0.5 * np.sin(2 * np.pi * time / 5) * 1e3
-    return rightFactor
+leftF = study.system.getReducedVector(fem1d.createNeumannVector(study.system, [evalNodes[0]], [1], [1]))
 
 
-def computeExternalLoad(time):
-    return leftFactor * leftF + computeRightFactor(time) * rightF
+def computeExternalLoad(time, currentU, previousU):
+    # check penetration
+    penaltyFactor = 1e6
+    if currentU[0] < 0:  # and currentU[0] - previousU[0] < 0:
+        leftFactor = penaltyFactor * (-currentU[0])
+    else:
+        leftFactor = 0
+    return leftF * leftFactor
 
 
 # solve
 title = config.ansatzType + " n%d" % config.n + " p%d" % config.p + " " + config.mass + " dt%e" % dt
 times, u, fullU, evalU, iMat, epsPla = fem1d.runCentralDifferenceMethodWeakContactImmersedLowMemoryPlastic(
-        study, c, epsYield, hardening, dt, nt, u0, u1, evalNodes, computeExternalLoad, dampingM=1e3)
+        study, c, epsYield, hardening, dt, nt, u0, u1, evalNodes, computeExternalLoad, earliestLumping=0, dampingM=0)
 
 # save
-fileBaseName = fem1d.getFileBaseNameAndCreateDir("results/quasi_static_plastic/", title.replace(' ', '_'))
+fileBaseName = fem1d.getFileBaseNameAndCreateDir(outputDir, title.replace(' ', '_'))
 fem1d.writeColumnFile(fileBaseName + '.dat', (times, evalU[:, 0], evalU[:, -1]))
+
+title2 = config.ansatzType + " n%d" % config.n + " p%d" % config.p + " " + config.mass + " dt%e" % dt + " final_disp"
+fileBaseName2 = fem1d.getFileBaseNameAndCreateDir(outputDir, title2.replace(' ', '_'))
+fem1d.writeColumnFile(fileBaseName2 + '.dat', (evalNodes, evalU[-1, :]))
+
+qpIds = [0]
+for iElement in range(study.config.n):
+    qpIds.append(qpIds[-1] + len(epsPla[iElement]))
+
+nQp = qpIds[-1]
+qpData = np.ndarray((nQp, 2))
+for iElement in range(study.config.n):
+    qpRange = range(qpIds[iElement], qpIds[iElement+1])
+    qpData[qpRange, 0] = study.quadratureK.points[iElement]
+    qpData[qpRange, 1] = epsPla[iElement]
+    for iPoint in qpRange:
+        if qpData[iPoint, 0] < left or qpData[iPoint, 0] > right:
+            print("Hi!")
+            qpData[iPoint, 1] = 0.0
+            epsPla[iElement][iPoint-qpRange.start] = 0.0
+title2 = config.ansatzType + " n%d" % config.n + " p%d" % config.p + " " + config.mass + " dt%e" % dt + " eps"
+fileBaseName2 = fem1d.getFileBaseNameAndCreateDir(outputDir, title2.replace(' ', '_'))
+fem1d.writeColumnFile(fileBaseName2 + '.dat', (qpData[:, 0], qpData[:, 1]))
 
 
 def plotBar():
@@ -110,25 +137,11 @@ def plotBar():
 
 
 def postProcess(animationSpeed=4, factor=1):
-    forces = times.copy()
-    for i in range(forces.size):
-        forces[i] = computeRightFactor(times[i])
-        
-    fem1d.plot(times, [evalU[:, -1], evalU[:, 0]], ["Disp. right", "Disp. left"], ["time", "displacement"])
-    fem1d.plot(times, [forces], ["Force"], ["time", "force"])
-    
-    fem1d.plot(evalU[:, -1], [forces], ["Force"], ["displacement", "force"])
+    fem1d.plot(times, [evalU[:, -1], evalU[:, 0]])
     fem1d.postProcessTimeDomainSolution(study, evalNodes, evalU, tMax, nt, animationSpeed, factor)
     figure, ax = plt.subplots()
-    nqp = study.config.p + 1
-    qpData = np.ndarray((study.config.n*nqp, 2))
     for iElement in range(study.config.n):
-        qpData[iElement * nqp:(iElement+1) * nqp, 0] = study.quadratureK.points[iElement]
-        qpData[iElement * nqp:(iElement + 1) * nqp, 1] = epsPla[iElement]
-        ax.plot(study.quadratureK.points[iElement], epsPla[iElement], "-", label=str(iElement))
-    title2 = config.ansatzType + " n%d" % config.n + " p%d" % config.p + " " + config.mass + " dt%e" % dt + " eps"
-    fileBaseName2 = fem1d.getFileBaseNameAndCreateDir("results/quasi_static_plastic/", title2.replace(' ', '_'))
-    fem1d.writeColumnFile(fileBaseName2 + '.dat', (qpData[:, 0], qpData[:, 1]))
+        ax.plot(study.quadratureK.points[iElement], epsPla[iElement], "-*", label=str(iElement))
     plt.show()
 
 
