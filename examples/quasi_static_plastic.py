@@ -46,7 +46,7 @@ study.K *= E / rho
 
 # time stuff
 L = config.right - 2*config.extra
-tMax = 10.0 * 2.0 * 10
+tMax = 10.0 * 2.0
 nt = 100000 * 1.0
 dt = tMax / nt
 
@@ -78,14 +78,14 @@ leftFactor = 0
 
 
 def computeRightFactor(time):
-    loadTime = time * 0.1
+    loadTime = time * tMax / 20.0
     # rightFactor = 0.5 * (1 - np.cos(2 * np.pi * time / 5)) * 1e3 * 0.5
     rightFactor = - 0.5 * np.cos(2 * np.pi * loadTime / 5) * 1e3 * loadTime*loadTime * 0.01
     #rightFactor = 0.5 * np.sin(2 * np.pi * time / 5) * 1e3
     return rightFactor
 
 
-def computeExternalLoad(time):
+def computeExternalLoad(time, currentU, previousU):
     return leftFactor * leftF + computeRightFactor(time) * rightF
 
 

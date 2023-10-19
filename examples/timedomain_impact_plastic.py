@@ -7,25 +7,28 @@ from scipy.fftpack import fft
 
 from context import fem1d
 
-outputDir = "results/crash_test_plastic_new_elastic/"
+if 'outputDir' not in locals():
+    outputDir = "results/timedomain_impact_plastic/"
+
+print("Output directory: %s" % outputDir)
 
 # create config if not already present (may be constructed from calling script)
 if 'config' not in locals():
     config = fem1d.StudyConfig(
         # problem
-        left=0,
+        left=0.0,
         right=1.0,
-        extra=0.05,
+        extra=0.0,
 
         # method
-        #ansatzType='Lagrange',
-        ansatzType='Spline',
-        #ansatzType='InterpolatorySpline',
+        ansatzType='Lagrange',
+        # ansatzType='Spline',
+        # ansatzType='InterpolatorySpline',
         n=12,
         p=2,
 
         continuity='p-1',
-        mass='CON',
+        mass='HRZ',
 
         depth=50,
         spectral=False,
@@ -39,6 +42,12 @@ if 'config' not in locals():
 p = config.p
 config.n = config.n * (eval(config.continuity) + 1)
 print("Elements: %d" % config.n)
+
+# set simulation type
+contact = True
+if not contact:
+    config.extra = 0.0
+    config.fixedDof = [0]
 
 # create study
 study = fem1d.EigenvalueStudy(config)
@@ -78,20 +87,25 @@ right = study.grid.right - config.extra
 evalNodes = np.linspace(left, right, 96*4)
 #evalNodes = np.array([left, left+1e-6, 0.5*(right-left), right-1e-6, right])
 
-# external load
-rightF = study.system.getReducedVector(fem1d.createNeumannVector(study.system, [evalNodes[-1]], [1], [1]))
-leftF = study.system.getReducedVector(fem1d.createNeumannVector(study.system, [evalNodes[0]], [1], [1]))
+
+if contact:
+    # external load
+    rightF = study.system.getReducedVector(fem1d.createNeumannVector(study.system, [evalNodes[-1]], [1], [1]))
+    leftF = study.system.getReducedVector(fem1d.createNeumannVector(study.system, [evalNodes[0]], [1], [1]))
 
 
-def computeExternalLoad(time, currentU, previousU):
-    # check penetration
-    penaltyFactor = 1e6
-    if currentU[0] < 0:  # and currentU[0] - previousU[0] < 0:
-        leftFactor = penaltyFactor * (-currentU[0])
-    else:
-        leftFactor = 0
-    return leftF * leftFactor
+    def computeExternalLoad(time, currentU, previousU):
+        # check penetration
+        penaltyFactor = 1e6
+        if currentU[0] < 0:  # and currentU[0] - previousU[0] < 0:
+            leftFactor = penaltyFactor * (-currentU[0])
+        else:
+            leftFactor = 0
+        return leftF * leftFactor
 
+else:
+    def computeExternalLoad(time, currentU, previousU):
+        return np.zeros(study.system.nDof() - 1)
 
 # solve
 title = config.ansatzType + " n%d" % config.n + " p%d" % config.p + " " + config.mass + " dt%e" % dt

@@ -461,8 +461,8 @@ def runCentralDifferenceMethodWeakContactImmersedLowMemoryPlastic(study, c, epsY
         if i % onePercent == 0:
             print(".", end="", flush=True)
             if i % (onePercent*10) == 0:
-                minEpsPla = np.min(np.min(np.array(epsPla)))
-                maxEpsPla = np.max(np.max(np.array(epsPla)))
+                minEpsPla = fem1d.minListElement(epsPla)
+                maxEpsPla = fem1d.maxListElement(epsPla)
                 maxDisp = np.max(np.abs(evalU))
                 print("%d%%, minEpsPla: %e,  maxEpsPla: %e, maxDisp: %e" % (i / onePercent, minEpsPla, maxEpsPla, maxDisp))
 

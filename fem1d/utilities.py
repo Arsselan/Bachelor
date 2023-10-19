@@ -45,3 +45,11 @@ def writeColumnFile(path, columns):
         data[:, i] = columns[i]
     np.savetxt(path, data)
 
+
+def maxListElement(list):
+    return max([max(val) for val in list])
+
+
+def minListElement(list):
+    return min([min(val) for val in list])
+
