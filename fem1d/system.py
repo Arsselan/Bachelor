@@ -171,3 +171,90 @@ def createNeumannVector(system, boundaries, normals, forces):
         #print(F)
 
     return F
+
+
+def createQuadraturePointData(quadrature):
+    import copy
+    data = copy.deepcopy(quadrature.points)
+    nElements = len(data)
+    for iElement in range(nElements):
+        nPoints = len(data[iElement])
+        for iPoint in range(nPoints):
+            data[iElement][iPoint] = 0
+    return data
+
+
+def computePlasticInnerLoadVector(c, epsYield, hardening, ansatz, quadrature, solution, epsPla):
+    grid = ansatz.grid
+    n = grid.nElements
+    alpha = quadrature.domain.alpha
+    F = np.zeros((ansatz.nDof(),))
+    nShapesPerElement = ansatz.nShapesPerElement()
+    maxAbsEps = 0
+    minAbsEps = 1e10
+    for iElement in range(n):
+        lm = ansatz.locationMap(iElement)
+        points = quadrature.points[iElement]
+        weights = quadrature.weights[iElement]
+        Ue = solution[lm]
+        Fe = np.zeros(nShapesPerElement)
+        #Ke = np.zeros((nShapesPerElement, nShapesPerElement))
+        for j in range(len(points)):
+            shapes = ansatz.evaluate(points[j], 1, iElement)
+            B = np.asarray(shapes[1])
+            eps = (B @ Ue.transpose())
+            if abs(eps) > maxAbsEps:
+                maxAbsEps = abs(eps)
+            if abs(eps) < minAbsEps:
+                    minAbsEps = abs(eps)
+            epsEla = eps - epsPla[iElement][j]
+            if epsEla > epsYield:
+                epsPla[iElement][j] += epsEla - epsYield
+            if epsEla < -epsYield:
+                epsPla[iElement][j] += epsEla + epsYield
+                #print("P", eps)
+            epsEla = eps - epsPla[iElement][j]
+            sigma = c*c*(epsEla + epsPla[iElement][j]*hardening)
+            Fe += B.transpose() * sigma * weights[j] * alpha(points[j])
+            #Ke += np.outer(B, B) * weights[j] * alpha(points[j])
+        #Fe = Ke @ Ue
+        F[lm] += Fe
+    #print("max/min abs eps: %e / %e" % (maxAbsEps, minAbsEps))
+    return F
+
+
+def radialReturn(E, sigmaYield, K, eps, epsPla, alphaPla):
+    sigmaTrial = E * (eps - epsPla)
+    fTrial = abs(sigmaTrial) - (sigmaYield + K * alphaPla)
+    if fTrial <= 0:
+        return epsPla, alphaPla, sigmaTrial
+    deltaGamma = fTrial / (E + K)
+    sigma = sigmaTrial - deltaGamma*E*np.sign(sigmaTrial)
+    epsPla = epsPla + deltaGamma*np.sign(sigmaTrial)
+    alphaPla = alphaPla + deltaGamma
+    return epsPla, alphaPla, sigma
+
+
+def computePlasticInnerLoadVectorIsotropic(c, epsYield, hardening, ansatz, quadrature, solution, epsPla, alphaPla):
+    grid = ansatz.grid
+    n = grid.nElements
+    alpha = quadrature.domain.alpha
+    F = np.zeros((ansatz.nDof(),))
+    nShapesPerElement = ansatz.nShapesPerElement()
+    for iElement in range(n):
+        lm = ansatz.locationMap(iElement)
+        points = quadrature.points[iElement]
+        weights = quadrature.weights[iElement]
+        Ue = solution[lm]
+        Fe = np.zeros(nShapesPerElement)
+        for j in range(len(points)):
+            shapes = ansatz.evaluate(points[j], 1, iElement)
+            B = np.asarray(shapes[1])
+            eps = (B @ Ue.transpose())
+            newEpsPla, newAlphaPla, sigma = radialReturn(c*c, c*c*epsYield, c*c*hardening, eps, epsPla[iElement][j], alphaPla[iElement][j])
+            epsPla[iElement][j] = newEpsPla
+            alphaPla[iElement][j] = newAlphaPla
+            Fe += B.transpose() * sigma * weights[j] * alpha(points[j])
+        F[lm] += Fe
+    return F
+

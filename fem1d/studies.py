@@ -11,7 +11,7 @@ class StudyConfig:
 
     def __init__(self, left, right, extra,
                  n, p, ansatzType, continuity, mass, depth, stabilize,
-                 spectral, dual, smartQuadrature, source,
+                 spectral, dual, smartQuadrature, source, fixedDof=[],
                  eigenvalueStabilizationM=0.0, eigenvalueStabilizationK=0.0):
 
         self.left = left
@@ -30,7 +30,7 @@ class StudyConfig:
         self.dual = dual
         self.smartQuadrature = smartQuadrature
         self.source = source
-
+        self.fixedDof = fixedDof
         self.eigenvalueStabilizationM = eigenvalueStabilizationM
         self.eigenvalueStabilizationK = eigenvalueStabilizationK
 
@@ -99,7 +99,7 @@ class EigenvalueStudy:
 
         # disable certain dof
         #    system.findZeroDof(-1e60, [0, 1, system.nDof()-2, system.nDof()-1])
-        system.findZeroDof(0)
+        system.findZeroDof(0, self.config.fixedDof)
         if len(system.zeroDof) > 0:
             print("Warning! There were %d zero dof found." % len(system.zeroDof))
             #print("Warning! There were %d zero dof found: " % len(system.zeroDof) + str(system.zeroDof))
@@ -296,7 +296,8 @@ def correctTimeStepSize(dt, tMax, critDeltaT, safety=0.9):
     return dt, nt
 
 
-def postProcessTimeDomainSolution(study, evalNodes, evalU, tMax, nt, animationSpeed=4):
+# Plot animation
+def postProcessTimeDomainSolution(study, evalNodes, evalU, tMax, nt, animationSpeed=4, factor=1.0):
     figure, ax = plt.subplots()
     ax.set_xlim(study.grid.left, study.grid.right)
     ax.set_ylim(-2, 2)
@@ -307,7 +308,7 @@ def postProcessTimeDomainSolution(study, evalNodes, evalU, tMax, nt, animationSp
 
     ax.plot(evalNodes, evalU[1], '--', label='initial condition')
 
-    line2, = ax.plot(0, 0, label='numerical')
+    line2, = ax.plot(0, 0, "-*", label='numerical')
     line2.set_xdata(evalNodes)
 
     ax.legend()
@@ -321,7 +322,7 @@ def postProcessTimeDomainSolution(study, evalNodes, evalU, tMax, nt, animationSp
     def prepareFrame(i):
         step = int(round(i / tMax * nt))
         plt.title(title + " time %3.2e step %d" % (i, step))
-        line2.set_ydata(evalU[step])
+        line2.set_ydata(evalU[step]*factor)
         #line2.set_xdata(evalNodes + evalU[step])
 
     frames = np.linspace(0, tMax, round(tMax * 60 / animationSpeed))
