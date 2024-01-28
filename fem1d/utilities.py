@@ -15,7 +15,7 @@ def find_nearest_index(array, value):
     return idx
 
 
-def plot(ptx, pty, labels=[]):
+def plot(ptx, pty, labels=[], axes=[]):
     figure, ax = plt.subplots()
     if len(labels) == 0:
         for i in range(len(pty)):
@@ -24,6 +24,10 @@ def plot(ptx, pty, labels=[]):
         for i in range(len(pty)):
             ax.plot(ptx, pty[i], label=labels[i])
         plt.legend()
+    if len(axes) > 0:
+        plt.xlabel(axes[0])
+    if len(axes) > 1:
+        plt.ylabel(axes[1])
     plt.show()
 
 
@@ -40,4 +44,12 @@ def writeColumnFile(path, columns):
     for i in range(nCols):
         data[:, i] = columns[i]
     np.savetxt(path, data)
+
+
+def maxListElement(list):
+    return max([max(val) for val in list])
+
+
+def minListElement(list):
+    return min([min(val) for val in list])
 
