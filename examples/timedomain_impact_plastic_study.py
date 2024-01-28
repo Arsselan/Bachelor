@@ -7,7 +7,7 @@ from scipy.fftpack import fft
 
 from context import fem1d
 
-outputDir = "results/timedomain_impact_plastic_study/"
+outputDir = "results/timedomain_impact_plastic_study_xxx/"
 
 config = fem1d.StudyConfig(
     # problem
@@ -120,8 +120,10 @@ if compute:
             config.continuity = "0"
 
         for mass in ["CON", "RS"]:
-            for p in [1, 2, 3]:
-                for n in [12, 24, 48, 96]:
+#            for p in [1, 2, 3]:
+            for p in [3]:
+#                for n in [12, 24, 48, 96]:
+                for n in [24]:
                     print("\n\n", ansatzType, " ", mass, " ", p, " ", n, "\n\n")
                     config.n = int(n / p)
                     config.p = p
