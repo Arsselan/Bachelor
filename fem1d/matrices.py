@@ -24,7 +24,7 @@ class WaveEquationStandardMatrices:
         self.Fe = np.zeros((nShapes,))
 
     def addSystemIntegrands(self, system, point, weight, alpha, N, B):
-        self.Me += np.outer(N, N) * weight * alpha
+        self.Me += self.density * np.outer(N, N) * weight * alpha
         self.Ke += np.outer(B, B) * weight * alpha
         self.Fe += N * self.bodyLoad(point) * weight * alpha
 
@@ -80,7 +80,7 @@ class WaveEquationMassMatrix:
         self.Me = np.zeros((nShapes, nShapes))
 
     def addSystemIntegrands(self, system, point, weight, alpha, N, B):
-        self.Me += np.outer(N, N) * weight * alpha
+        self.Me += self.density * np.outer(N, N) * weight * alpha
 
     def scatterElementMatrices(self, system, iElement, mass, lm, eSlice):
         system.matrixValues['M'][eSlice] = self.Me.ravel()
@@ -113,6 +113,7 @@ def computeHrzLumpedMatrix(Me, mass):
 
 class WaveEquationLumpedMatrices:
     def __init__(self, stdMatrices):
+        self.density = stdMatrices.density
         self.stdMatrices = stdMatrices
         self.Me = stdMatrices.Me
 
@@ -253,7 +254,7 @@ def computeSystemMatrices(system, ansatz, quadrature, matrices):
             N = np.asarray(shapes[0])
             B = np.asarray(shapes[1])
             matrices.addSystemIntegrands(system, points[j], weights[j], alpha(points[j]), N, B)
-            mass += weights[j] * alpha(points[j])
+            mass += matrices.density * weights[j] * alpha(points[j])
 
         if system.minNonZeroMass > mass > 0:
             system.minNonZeroMass = mass
