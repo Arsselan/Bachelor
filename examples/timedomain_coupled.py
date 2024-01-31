@@ -50,8 +50,17 @@ quadratureF = fem1d.SpaceTreeQuadrature(grid, gaussPoints, domainF, spaceTreeDep
 quadratureS = fem1d.SpaceTreeQuadrature(grid, gaussPoints, domainS, spaceTreeDepth)
 
 # create system
-systemF = fem1d.TripletSystem.fromOneQuadrature(ansatz, quadratureF, source.fx)
-systemS = fem1d.TripletSystem.fromOneQuadrature(ansatz, quadratureS)
+matricesF = fem1d.WaveEquationStandardMatrices(1.0, 1.0, source.fx)
+matricesF = fem1d.WaveEquationLumpedMatrices(matricesF)
+
+matricesS = fem1d.WaveEquationStandardMatrices(1.0, 1.0, source.fx)
+matricesS = fem1d.WaveEquationLumpedMatrices(matricesS)
+
+systemF = fem1d.TripletSystem(ansatz)
+systemS = fem1d.TripletSystem(ansatz)
+
+fem1d.computeSystemMatrices(systemF, ansatz, quadratureF, matricesF)
+fem1d.computeSystemMatrices(systemS, ansatz, quadratureS, matricesS)
 
 systemF.findZeroDof(-1e60)
 systemS.findZeroDof(-1e60)
