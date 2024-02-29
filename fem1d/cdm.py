@@ -15,6 +15,7 @@ def runCentralDifferenceMethod(study, dt, nt, u0, u1, evalPos):
     evalU = np.zeros((nt + 1, len(evalPos)))
 
     times = np.zeros(nt + 1)
+    reaction = np.zeros(nt + 1)
 
     iMat = study.ansatz.interpolationMatrix(evalPos)
 
@@ -28,19 +29,31 @@ def runCentralDifferenceMethod(study, dt, nt, u0, u1, evalPos):
         evalU[i] = iMat * fullU[i]
 
     print("Factorization ... ", flush=True)
-    factorized = scipy.sparse.linalg.splu(M)
+    #factorized = scipy.sparse.linalg.splu(M)
+    C = 0.5 * dt * (5e2 * M)
+    factorized = scipy.sparse.linalg.splu(M + C)
 
     print("Time integration ... ", flush=True)
     for i in range(2, nt + 1):
         times[i] = i * dt
+
+        internalLoad = study.K * u[i - 1]
+        reaction[i] = internalLoad[0]
+
         u[i] = factorized.solve(
-            M * (2 * u[i - 1] - u[i - 2]) + dt ** 2 * (
-                        study.F * study.config.source.ft((i - 1) * dt) - study.K * u[i - 1]))
+            M * (2 * u[i - 1] - u[i - 2]) + C * u[i-2] + dt ** 2 * (
+                study.F * study.config.source.ft((i - 1) * dt) - internalLoad))
+
+        #u[i] = factorized.solve(
+        #    M * (2 * u[i - 1] - u[i - 2]) + dt ** 2 * (
+        #                study.F * study.config.source.ft((i - 1) * dt) - study.K * u[i - 1]))
+
+        u[i][-1] = np.sin(2*np.pi*97*times[i])
 
         fullU[i] = study.system.getFullVector(u[i])
         evalU[i] = iMat * fullU[i]
 
-    return u, fullU, evalU, iMat
+    return u, fullU, evalU, iMat, times, reaction
 
 
 # 1

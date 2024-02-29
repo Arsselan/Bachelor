@@ -182,6 +182,7 @@ def createStabilizationMatrix(v, w, indices):
 
 class WaveEquationStabilizedMatrices:
     def __init__(self, stdMatrices, epsM):
+        self.density = stdMatrices.density
         self.stdMatrices = stdMatrices
         self.epsM = epsM
         self.Me = stdMatrices.Me
