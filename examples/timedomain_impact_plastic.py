@@ -62,7 +62,7 @@ study.K *= E / rho
 # time stuff
 L = config.right - 2*config.extra
 tMax = 0.1
-nt = int(20000)
+nt = int(20000*10)
 dt = tMax / nt
 
 # compute critical time step size
@@ -70,7 +70,7 @@ w = study.computeLargestEigenvalueSparse()
 critDeltaT = 2 / abs(w)
 print("Critical time step size is %e" % critDeltaT)
 print("Chosen time step size is %e" % dt)
-dt, nt = fem1d.correctTimeStepSize(dt, tMax, critDeltaT)
+# dt, nt = fem1d.correctTimeStepSize(dt, tMax, critDeltaT)
 print("Corrected time step size is %e" % dt)
 
 #exit(1)

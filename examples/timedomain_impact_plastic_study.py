@@ -7,13 +7,13 @@ from scipy.fftpack import fft
 
 from context import fem1d
 
-outputDir = "results/timedomain_impact_plastic_study/"
+outputDir = "results/timedomain_impact_plastic_study_reference_extra/"
 
 config = fem1d.StudyConfig(
     # problem
-    left=0,
-    right=1.0,
-    extra=0,
+    left=-0.01,
+    right=1.01,
+    extra=0.01,
 
     # method
     ansatzType='Lagrange',
@@ -31,7 +31,7 @@ config = fem1d.StudyConfig(
     stabilize=0,
     smartQuadrature=True,
     source=fem1d.sources.NoSource(),
-    fixedDof=[0]
+    fixedDof=[]
 )
 
 compute = True
@@ -119,11 +119,17 @@ if compute:
         else:
             config.continuity = "0"
 
-        for mass in ["CON", "RS"]:
-            for p in [1, 2, 3]:
-                for n in [12, 24, 48, 96]:
+        masses = ["CON", "RS"]
+        if ansatzType == "Lagrange":
+            masses = ["CON", "HRZ"]
+        for mass in masses:
+            for p in [4]:
+                # for n in [12, 24, 48, 96]:
+                for n in [256]:
                     print("\n\n", ansatzType, " ", mass, " ", p, " ", n, "\n\n")
                     config.n = int(n / p)
                     config.p = p
                     config.mass = mass
                     exec(open("examples/timedomain_impact_plastic.py").read())
+
+
