@@ -83,8 +83,8 @@ class TripletSystem:
 
 
 def getReducedVector(systemF, systemS):
-    FF = systemF.getReducedVector(systemF.F)
-    FS = systemS.getReducedVector(systemS.F)
+    FF = systemF.getReducedVector(systemF.vectors['F'])
+    FS = systemS.getReducedVector(systemS.vectors['F'])
     return np.concatenate((FF, FS), axis=0)
 
 
@@ -97,8 +97,8 @@ def createSparseMatrices(systemF, systemS):
         colS[i] += nDofF
     row = np.concatenate((rowF, rowS), axis=0)
     col = np.concatenate((colF, colS), axis=0)
-    valM = np.concatenate((systemF.valM, systemS.valM), axis=0)
-    valK = np.concatenate((systemF.valK, systemS.valK), axis=0)
+    valM = np.concatenate((systemF.matrixValues['M'], systemS.matrixValues['M']), axis=0)
+    valK = np.concatenate((systemF.matrixValues['K'], systemS.matrixValues['K']), axis=0)
     M = scipy.sparse.coo_matrix((valM, (row, col))).tocsc()
     K = scipy.sparse.coo_matrix((valK, (row, col))).tocsc()
 

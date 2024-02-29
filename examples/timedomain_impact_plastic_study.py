@@ -119,13 +119,11 @@ if compute:
         else:
             config.continuity = "0"
 
-        masses = ["CON", "RS"]
-        if ansatzType == "Lagrange":
-            masses = ["CON", "HRZ"]
-        for mass in masses:
-            for p in [4]:
-                # for n in [12, 24, 48, 96]:
-                for n in [256]:
+        for mass in ["CON", "RS"]:
+#            for p in [1, 2, 3]:
+            for p in [3]:
+#                for n in [12, 24, 48, 96]:
+                for n in [24]:
                     print("\n\n", ansatzType, " ", mass, " ", p, " ", n, "\n\n")
                     config.n = int(n / p)
                     config.p = p

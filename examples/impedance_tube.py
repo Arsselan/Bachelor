@@ -8,8 +8,10 @@ from context import fem1d
 
 # problem
 left = 0
-right = 2.0
-boundary = 1.0 - 0.2 * 2.0/50
+mic1 = 0.2055
+boundary = mic1 + 0.106
+right = boundary + 0.03
+mic2 = boundary - 0.086
 
 
 def alphaF(x):
@@ -24,7 +26,8 @@ def alphaS(x):
     return 1e-8
 
 
-source = fem1d.sources.RicklersWavelet(1.0, alphaF)
+source = fem1d.sources.RicklersWavelet(10.0, alphaF)
+amplitude = 0.03
 
 # method
 # ansatzType = 'Spline'
@@ -32,8 +35,8 @@ ansatzType = 'Lagrange'
 continuity = '0'
 spaceTreeDepth = 40
 n = 50
-p = 3
-tMax = 10
+p = 1
+tMax = 5
 nt = 10000
 dt = tMax / nt
 
@@ -53,7 +56,7 @@ quadratureS = fem1d.SpaceTreeQuadrature(grid, gaussPoints, domainS, spaceTreeDep
 matricesF = fem1d.WaveEquationStandardMatrices(1.0, 1.0, source.fx)
 matricesF = fem1d.WaveEquationLumpedMatrices(matricesF)
 
-matricesS = fem1d.WaveEquationStandardMatrices(1.0, 1.0, source.fx)
+matricesS = fem1d.WaveEquationStandardMatrices(5.0, 1.0, source.fx)
 matricesS = fem1d.WaveEquationLumpedMatrices(matricesS)
 
 systemF = fem1d.TripletSystem(ansatz)
@@ -107,8 +110,12 @@ nodesS = np.linspace(boundary * 0.7, grid.right, 1000)
 IS = ansatz.interpolationMatrix(nodesS)
 ISG = ansatz.interpolationMatrix(nodesS, 1)
 
+nodesMic = np.array([mic1, mic2])
+IFmic = ansatz.interpolationMatrix(nodesMic)
+evalUFVmic = np.zeros((nt + 1, 2))
+
 for i in range(2, nt + 1):
-    rhs = M * (2 * u[i - 1] - u[i - 2]) + dt / 2 * C * u[i - 2] + dt ** 2 * (F * source.ft(i * dt) - K * u[i - 1])
+    rhs = M * (2 * u[i - 1] - u[i - 2]) + dt / 2 * C * u[i - 2] + dt ** 2 * (F * amplitude * source.ft(i * dt) - K * u[i - 1])
     u[i] = lu.solve(rhs)
     fullUF[i] = systemF.getFullVector(u[i][0:nDofF])
     fullUS[i] = systemS.getFullVector(u[i][nDofF:nDofF + nDofS])
@@ -118,6 +125,7 @@ for i in range(2, nt + 1):
     evalUSV[i - 1] = IS * (fullUS[i] - fullUS[i - 2]) / (2 * dt)
     evalUFG[i] = IFG * fullUF[i]
     evalUSG[i] = ISG * fullUS[i]
+    evalUFVmic[i] = IFmic * fullUF[i]
 
 
 # Plot animation
@@ -189,7 +197,14 @@ def postProcess():
     plt.show()
 
 
+def plotMicSignals():
+    times = np.linspace(0, tMax, nt + 1)
+    fem1d.plot(times, [evalUFVmic[:, 0], evalUFVmic[:, 1]], ["left", "right"])
+
+
 postProcess()
+
+
 
 # import cProfile
 # cProfile.run('runStudy(20, 3)')
