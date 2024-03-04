@@ -14,7 +14,7 @@ if 'config' not in locals():
         # ansatzType = 'InterpolatorySpline',
         # ansatzType='Spline',
         n=80,
-        p=4,
+        p=2,
         continuity='p-1',
         mass='RS',
 
@@ -26,31 +26,30 @@ if 'config' not in locals():
 
         source=fem1d.sources.NoSource(),
 
-        eigenvalueStabilizationM=1e-4
+        eigenvalueStabilizationM=0
     )
 
-if 0:
-    config.ansatzType = 'Lagrange'
-    config.p = 4
-    config.mass = 'HRZ'
-    config.n = 51
-    config.extra = 0.2
-
-if 0:
-    config.ansatzType = 'Spline'
-    config.p = 4
-    config.mass = 'RS'
-    config.n = 238
-    config.extra = 0.2
+# parameters
+config.density = 30.0
+config.elasticity = 4e4#1.5e5
+damping = 2000#2e5#100
 
 
 L = config.right - 2*config.extra
-tMax = L*20
+tMax = L*10
 nt = 1
 dt = tMax / nt
 
 # create study
 study = fem1d.EigenvalueStudy(config)
+
+disablePlots = True
+if 'frequency' not in locals():
+    frequency = 20
+    disablePlots = False
+
+amplitude = 25e-6
+preDisp = -0.6e-3
 
 # compute critical time step size
 w = study.computeLargestEigenvalueSparse()
@@ -61,14 +60,87 @@ dt, nt = fem1d.correctTimeStepSize(dt, tMax, critDeltaT, safety=0.5)
 print("Corrected time step size is %e" % dt)
 
 # solve sparse
-u0, u1 = fem1d.sources.applyGaussianInitialConditions(study.ansatz, dt, -0.6, config.stabilize)
+u0 = np.zeros(study.ansatz.nDof())
+u1 = np.zeros(study.ansatz.nDof())
 evalNodes = np.linspace(study.grid.left + config.extra, study.grid.right - config.extra, study.ansatz.nDof())
-u, fullU, evalU, iMat, times, reaction = fem1d.runCentralDifferenceMethod(study, dt, nt, u0, u1, evalNodes)
-#u, fullU, evalU, iMat = study.runCentralDifferenceMethodLowMemory(dt, nt, u0, u1, evalNodes, [-dt, 0.0, tMax])
+u, fullU, evalU, iMat, times, reactionLeft, reactionRight = fem1d.runCentralDifferenceMethodWithDamping(study, dt, nt, u0, u1, evalNodes, damping, frequency, amplitude, preDisp)
 
 
-def postProcess(animationSpeed=4):
-    fem1d.postProcessTimeDomainSolution(study, evalNodes, evalU, tMax, nt, animationSpeed)
+def shift(vector):
+    return vector - np.mean(vector)
+
+
+def normalize(vector):
+    return vector / max(abs(vector))
+
+
+def computeStorageAndLoss(dispPeriod, forcePeriod):
+    radius = 0.015
+    area = np.pi * radius**2
+
+    maxStress = max(forcePeriod)
+    maxStressIndex = np.argmax(forcePeriod)
+
+    maxStrain = max(dispPeriod) / L
+    maxStrainIndex = np.argmax(dispPeriod)
+
+    timeShift = dt*(maxStressIndex - maxStrainIndex)
+
+    delta = timeShift * (2*np.pi*frequency)
+
+    storage = maxStress / maxStrain * np.cos(delta)
+    loss = maxStress / maxStrain * np.sin(delta)
+
+    #fem1d.plot(times, [dispPeriod, forcePeriod], ["disp", "force"])
+    #print("Max disp at: %d, %e" % (maxStrainIndex, times[maxStrainIndex]))
+    #print("Max force at: %d, %e" % (maxStressIndex, times[maxStressIndex]))
+    #print("Time shift: %e" % timeShift)
+
+    while delta > np.pi:
+        delta -= 2*np.pi
+
+    while delta < -np.pi:
+        delta += 2*np.pi
+
+    return storage, loss, delta
+
+
+def evaluate():
+    start = int(nt - 1.0 / frequency / dt) - 1
+    end = -1
+    print("Start: %d" % start)
+    disp = shift(u[start:end, -1])
+    reacLeft = shift(-reactionLeft[start:end])
+    reacRight = shift(reactionRight[start:end])
+
+    storageLeft, lossLeft, deltaLeft = computeStorageAndLoss(disp, reacLeft)
+    storageRight, lossRight, deltaRight = computeStorageAndLoss(disp, reacRight)
+
+    with open("shaker_damp_freq_storage_loss_delta_left.dat", "a") as file:
+        file.write("%e %e %e %e %e\n" % (damping, frequency, storageLeft, lossLeft, deltaLeft))
+
+    with open("shaker_damp_freq_storage_loss_delta_right.dat", "a") as file:
+        file.write("%e %e %e %e %e\n" % (damping, frequency,  storageRight, lossRight, deltaRight))
+
+    data = np.ndarray((nt+1, 4))
+    data[:, 0] = times
+    data[:, 1] = u[:, -1]
+    data[:, 2] = reactionLeft
+    data[:, 3] = reactionRight
+    np.savetxt("shaker_time_dispRight_forceLeft_forceRight_freq%d_damp_%e.dat" % (int(frequency), damping), data)
+
+    #print("Max disp: %e, max reaction: %e" % (maxDisp, maxReac))
+    #print("Max disp: %d, max reaction: %d" % (maxDispIndex, maxReacIndex))
+    #print("Time shift: %e, delta: %e" % (timeShift, delta))
+    print("storage loss delta left: %e, %e, %e" % (storageLeft, lossLeft, deltaLeft))
+    print("storage loss delta right: %e, %e, %e" % (storageRight, lossRight, deltaRight))
+
+    if not disablePlots:
+        fem1d.plot(times[start:end], [normalize(disp), normalize(reacLeft), normalize(reacRight)], ["disp", "left", "right"])
+
+
+def postProcess(animationSpeed=4, factor=1):
+    fem1d.postProcessTimeDomainSolution(study, evalNodes, evalU*factor, tMax, nt, animationSpeed)
 
 
 def getResults():
@@ -76,23 +148,11 @@ def getResults():
     return w, error, tMax, dt, nt
 
 
-def saveSnapshots():
-    data = np.zeros((evalNodes.size, 5))
-    data[:, 0] = evalNodes
-    data[:, 1] = evalU[1]
-    data[:, 2] = evalU[int(nt/2)]
-    data[:, 3] = evalU[int(3*nt/4)]
-    data[:, 4] = evalU[-1]
+if not disablePlots:
+    fem1d.plot(1e6 * u[-100000:, -1], [reactionRight[-100000:]], ["force right"])
+    fem1d.plot(1e6 * u[-100000:, -1], [reactionLeft[-100000:]], ["force left"])
+    fem1d.plot(times, [1e6 * u[:, -1], reactionLeft, reactionRight], ["disp. right", "force left", "force right"])
 
-    np.savetxt("wave_reflection_lagrange_p5_n51_dof205.dat", data)
-    #dataClipped = np.clip(data, -0.1, 2.1)
-    #np.savetxt("wave_reflection_lagrange_p3_snapshots_clipped_dt8e-6.dat", dataClipped)
+evaluate()
+#postProcess(0.1)
 
-    if dt == 8e-6:
-        np.savetxt("wave_reflection_lagrange_p3_snapshots_dt8e-6.dat", data)
-        dataClipped = np.clip(data, -0.1, 2.1)
-        np.savetxt("wave_reflection_lagrange_p3_snapshots_clipped_dt8e-6.dat", dataClipped)
-
-
-postProcess(0.1)
-#fem1d.plot(times, [ u[:,-1] ] )

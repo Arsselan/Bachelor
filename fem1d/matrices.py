@@ -25,7 +25,7 @@ class WaveEquationStandardMatrices:
 
     def addSystemIntegrands(self, system, point, weight, alpha, N, B):
         self.Me += self.density * np.outer(N, N) * weight * alpha
-        self.Ke += np.outer(B, B) * weight * alpha
+        self.Ke += self.elasticity * np.outer(B, B) * weight * alpha
         self.Fe += N * self.bodyLoad(point) * weight * alpha
 
     def scatterElementMatrices(self, system, iElement, mass, lm, eSlice):
@@ -55,7 +55,7 @@ class WaveEquationStiffnessMatrixAndLoadVector:
         self.Fe = np.zeros((nShapes,))
 
     def addSystemIntegrands(self, system, point, weight, alpha, N, B):
-        self.Ke += np.outer(B, B) * weight * alpha
+        self.Ke += self.elasticity * np.outer(B, B) * weight * alpha
         self.Fe += N * self.bodyLoad(point) * weight * alpha
 
     def scatterElementMatrices(self, system, iElement, mass, lm, eSlice):

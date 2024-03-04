@@ -6,7 +6,7 @@ import fem1d
 
 
 # 1
-def runCentralDifferenceMethod(study, dt, nt, u0, u1, evalPos):
+def runCentralDifferenceMethodWithDamping(study, dt, nt, u0, u1, evalPos, damping, frequency, amplitude, finalPreDisp):
     M = study.getMassMatrix()
 
     # prepare result arrays
@@ -15,7 +15,8 @@ def runCentralDifferenceMethod(study, dt, nt, u0, u1, evalPos):
     evalU = np.zeros((nt + 1, len(evalPos)))
 
     times = np.zeros(nt + 1)
-    reaction = np.zeros(nt + 1)
+    reactionLeft = np.zeros(nt + 1)
+    reactionRight = np.zeros(nt + 1)
 
     iMat = study.ansatz.interpolationMatrix(evalPos)
 
@@ -29,8 +30,7 @@ def runCentralDifferenceMethod(study, dt, nt, u0, u1, evalPos):
         evalU[i] = iMat * fullU[i]
 
     print("Factorization ... ", flush=True)
-    #factorized = scipy.sparse.linalg.splu(M)
-    C = 0.5 * dt * (5e2 * M)
+    C = 0.5 * dt * (damping * M)
     factorized = scipy.sparse.linalg.splu(M + C)
 
     print("Time integration ... ", flush=True)
@@ -38,22 +38,28 @@ def runCentralDifferenceMethod(study, dt, nt, u0, u1, evalPos):
         times[i] = i * dt
 
         internalLoad = study.K * u[i - 1]
-        reaction[i] = internalLoad[0]
-
         u[i] = factorized.solve(
             M * (2 * u[i - 1] - u[i - 2]) + C * u[i-2] + dt ** 2 * (
                 study.F * study.config.source.ft((i - 1) * dt) - internalLoad))
 
-        #u[i] = factorized.solve(
-        #    M * (2 * u[i - 1] - u[i - 2]) + dt ** 2 * (
-        #                study.F * study.config.source.ft((i - 1) * dt) - study.K * u[i - 1]))
+        if 5 * i < nt:
+            preDisp = 0.5 * (1 - np.cos(np.pi * 5 * i / nt)) * finalPreDisp
+        else:
+            preDisp = finalPreDisp
 
-        u[i][-1] = np.sin(2*np.pi*97*times[i])
+        u[i][-1] = np.sin(2*np.pi*frequency*times[i]) * amplitude + preDisp
+        u[i][0] = 0
+
+        a = (u[i] - 2 * u[i - 1] + u[i - 2]) / dt**2
+        v = 0.5 * (u[i] - u[i - 2]) / dt
+        load = M * a + C * v + internalLoad
+        reactionLeft[i-1] = load[0]
+        reactionRight[i-1] = load[-1]
 
         fullU[i] = study.system.getFullVector(u[i])
         evalU[i] = iMat * fullU[i]
 
-    return u, fullU, evalU, iMat, times, reaction
+    return u, fullU, evalU, iMat, times, reactionLeft, reactionRight
 
 
 # 1
