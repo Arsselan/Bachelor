@@ -1,4 +1,5 @@
 import numpy as np
+import os
 from context import fem1d
 
 if 'config' not in locals():
@@ -13,7 +14,7 @@ if 'config' not in locals():
         ansatzType='Lagrange',
         # ansatzType = 'InterpolatorySpline',
         # ansatzType='Spline',
-        n=80,
+        n=8,
         p=2,
         continuity='p-1',
         mass='RS',
@@ -29,10 +30,14 @@ if 'config' not in locals():
         eigenvalueStabilizationM=0
     )
 
+
 # parameters
 config.density = 30.0
 config.elasticity = 4e4#1.5e5
-damping = 2000#2e5#100
+
+
+if 'damping' not in locals():
+    damping = 2000#2e5#100
 
 
 L = config.right - 2*config.extra
@@ -40,13 +45,28 @@ tMax = L*10
 nt = 1
 dt = tMax / nt
 
+
+# element size
+maxFreq = 1000
+elementsPerWaveLength = 10
+c = np.sqrt(config.elasticity / config.density)
+waveLength = c * maxFreq
+print("Wavelength / wavespeed: %e" % (waveLength, ))
+if waveLength < elementsPerWaveLength * L / config.n:
+    config.n = int(elementsPerWaveLength * L / waveLength + 0.5)
+print("Number of elements (per wavelength): %d /%d)" % (config.n, waveLength / L * config.n))
+
 # create study
 study = fem1d.EigenvalueStudy(config)
 
 disablePlots = True
 if 'frequency' not in locals():
-    frequency = 20
+    frequency = 50
     disablePlots = False
+
+outputDir = "shaker_damp%e_elas%e" % (damping, config.elasticity)
+if not os.path.exists(outputDir):
+    os.makedirs(outputDir)
 
 amplitude = 25e-6
 preDisp = -0.6e-3
@@ -88,21 +108,28 @@ def computeStorageAndLoss(dispPeriod, forcePeriod):
 
     delta = timeShift * (2*np.pi*frequency)
 
-    storage = maxStress / maxStrain * np.cos(delta)
-    loss = maxStress / maxStrain * np.sin(delta)
-
-    #fem1d.plot(times, [dispPeriod, forcePeriod], ["disp", "force"])
-    #print("Max disp at: %d, %e" % (maxStrainIndex, times[maxStrainIndex]))
-    #print("Max force at: %d, %e" % (maxStressIndex, times[maxStressIndex]))
-    #print("Time shift: %e" % timeShift)
-
-    while delta > np.pi:
+    while delta > 2*np.pi:
         delta -= 2*np.pi
 
-    while delta < -np.pi:
+    while delta < 0:
         delta += 2*np.pi
 
-    return storage, loss, delta
+    deltaStorage = delta
+
+    while deltaStorage > 0.5*np.pi:
+        deltaStorage -= np.pi
+
+    while deltaStorage < -0.5*np.pi:
+        deltaStorage += np.pi
+
+    deltaLoss = deltaStorage
+    if deltaLoss < 0:
+        deltaLoss = -deltaLoss
+
+    storage = maxStress / maxStrain * np.cos(deltaStorage)
+    loss = maxStress / maxStrain * np.sin(deltaLoss)
+
+    return storage, loss, delta, deltaStorage, deltaLoss
 
 
 def evaluate():
@@ -113,21 +140,24 @@ def evaluate():
     reacLeft = shift(-reactionLeft[start:end])
     reacRight = shift(reactionRight[start:end])
 
-    storageLeft, lossLeft, deltaLeft = computeStorageAndLoss(disp, reacLeft)
-    storageRight, lossRight, deltaRight = computeStorageAndLoss(disp, reacRight)
+    if not disablePlots:
+        fem1d.plot(disp, [reacLeft, reacRight, config.elasticity * disp / L], ["force left", "force right", "force static"])
 
-    with open("shaker_damp_freq_storage_loss_delta_left.dat", "a") as file:
-        file.write("%e %e %e %e %e\n" % (damping, frequency, storageLeft, lossLeft, deltaLeft))
+    storageLeft, lossLeft, deltaLeft, deltaStorageLeft, deltaLossLeft = computeStorageAndLoss(disp, reacLeft)
+    storageRight, lossRight, deltaRight, deltaStorageRight, deltaLossRight = computeStorageAndLoss(disp, reacRight)
 
-    with open("shaker_damp_freq_storage_loss_delta_right.dat", "a") as file:
-        file.write("%e %e %e %e %e\n" % (damping, frequency,  storageRight, lossRight, deltaRight))
+    with open(outputDir + "/shaker_damp_freq_storage_loss_delta_left.dat", "a") as file:
+        file.write("%e %e %e %e %e %e %e\n" % (damping, frequency, storageLeft, lossLeft, deltaLeft, deltaStorageLeft, deltaLossLeft))
+
+    with open(outputDir + "/shaker_damp_freq_storage_loss_delta_right.dat", "a") as file:
+        file.write("%e %e %e %e %e %e %e\n" % (damping, frequency,  storageRight, lossRight, deltaRight, deltaStorageRight, deltaLossRight))
 
     data = np.ndarray((nt+1, 4))
     data[:, 0] = times
     data[:, 1] = u[:, -1]
     data[:, 2] = reactionLeft
     data[:, 3] = reactionRight
-    np.savetxt("shaker_time_dispRight_forceLeft_forceRight_freq%d_damp_%e.dat" % (int(frequency), damping), data)
+    np.savetxt(outputDir + "/shaker_time_dispRight_forceLeft_forceRight_freq%d_damp_%e.dat" % (int(frequency), damping), data)
 
     #print("Max disp: %e, max reaction: %e" % (maxDisp, maxReac))
     #print("Max disp: %d, max reaction: %d" % (maxDispIndex, maxReacIndex))
@@ -138,6 +168,7 @@ def evaluate():
     if not disablePlots:
         fem1d.plot(times[start:end], [normalize(disp), normalize(reacLeft), normalize(reacRight)], ["disp", "left", "right"])
 
+    return storageLeft, lossLeft, deltaLeft, deltaStorageLeft, deltaLossLeft
 
 def postProcess(animationSpeed=4, factor=1):
     fem1d.postProcessTimeDomainSolution(study, evalNodes, evalU*factor, tMax, nt, animationSpeed)
@@ -149,10 +180,9 @@ def getResults():
 
 
 if not disablePlots:
-    fem1d.plot(1e6 * u[-100000:, -1], [reactionRight[-100000:]], ["force right"])
-    fem1d.plot(1e6 * u[-100000:, -1], [reactionLeft[-100000:]], ["force left"])
     fem1d.plot(times, [1e6 * u[:, -1], reactionLeft, reactionRight], ["disp. right", "force left", "force right"])
 
-evaluate()
+
+storageLeft, lossLeft, deltaLeft, deltaStorageLeft, deltaLossLeft = evaluate()
 #postProcess(0.1)
 
