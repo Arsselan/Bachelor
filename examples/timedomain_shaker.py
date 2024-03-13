@@ -2,7 +2,7 @@ import numpy as np
 import os
 from context import fem1d
 
-def run(damping, elasticity, frequency, disablePlots = False):
+def run(extraDelta, damping, damping2, elasticity, frequency, disablePlots = False):
     if 'config' not in locals():
         config = fem1d.StudyConfig(
             # problem
@@ -38,7 +38,7 @@ def run(damping, elasticity, frequency, disablePlots = False):
     config.elasticity = elasticity
     print("Elasticity set to %e" % config.elasticity)
 
-    print("Damping set to %e" % damping)
+    print("Damping set to %e, %e" % (damping, damping2))
     print("Frequency set to %e" % frequency)
 
     L = config.right - 2*config.extra
@@ -60,7 +60,7 @@ def run(damping, elasticity, frequency, disablePlots = False):
     # create study
     study = fem1d.EigenvalueStudy(config)
 
-    outputDir = "shaker_damp%e_elas%e" % (damping, config.elasticity)
+    outputDir = "shaker_damp%e_%e_elas%e" % (damping, damping2, config.elasticity)
     if not os.path.exists(outputDir):
         os.makedirs(outputDir)
 
@@ -79,7 +79,7 @@ def run(damping, elasticity, frequency, disablePlots = False):
     u0 = np.zeros(study.ansatz.nDof())
     u1 = np.zeros(study.ansatz.nDof())
     evalNodes = np.linspace(study.grid.left + config.extra, study.grid.right - config.extra, study.ansatz.nDof())
-    u, fullU, evalU, iMat, times, reactionLeft, reactionRight = fem1d.runCentralDifferenceMethodWithDamping(study, dt, nt, u0, u1, evalNodes, damping, frequency, amplitude, preDisp)
+    u, fullU, evalU, iMat, times, reactionLeft, reactionRight = fem1d.runCentralDifferenceMethodWithDamping(study, dt, nt, u0, u1, evalNodes, damping, damping2, frequency, amplitude, preDisp)
 
 
     def shift(vector):
@@ -102,7 +102,7 @@ def run(damping, elasticity, frequency, disablePlots = False):
 
         timeShift = dt*(maxStressIndex - maxStrainIndex)
 
-        delta = timeShift * (2*np.pi*frequency)
+        delta = timeShift * (2*np.pi*frequency) + extraDelta
 
         while delta > 2*np.pi:
             delta -= 2*np.pi
@@ -143,17 +143,17 @@ def run(damping, elasticity, frequency, disablePlots = False):
         storageRight, lossRight, deltaRight, deltaStorageRight, deltaLossRight = computeStorageAndLoss(disp, reacRight)
 
         with open(outputDir + "/shaker_damp_freq_storage_loss_delta_left.dat", "a") as file:
-            file.write("%e %e %e %e %e %e %e\n" % (damping, frequency, storageLeft, lossLeft, deltaLeft, deltaStorageLeft, deltaLossLeft))
+            file.write("%e %e %e %e %e %e %e %e\n" % (damping, damping2, frequency, storageLeft, lossLeft, deltaLeft, deltaStorageLeft, deltaLossLeft))
 
         with open(outputDir + "/shaker_damp_freq_storage_loss_delta_right.dat", "a") as file:
-            file.write("%e %e %e %e %e %e %e\n" % (damping, frequency,  storageRight, lossRight, deltaRight, deltaStorageRight, deltaLossRight))
+            file.write("%e %e %e %e %e %e %e %e\n" % (damping, damping2, frequency,  storageRight, lossRight, deltaRight, deltaStorageRight, deltaLossRight))
 
         data = np.ndarray((nt+1, 4))
         data[:, 0] = times
         data[:, 1] = u[:, -1]
         data[:, 2] = reactionLeft
         data[:, 3] = reactionRight
-        np.savetxt(outputDir + "/shaker_time_dispRight_forceLeft_forceRight_freq%d_damp_%e.dat" % (int(frequency), damping), data)
+        np.savetxt(outputDir + "/shaker_time_dispRight_forceLeft_forceRight_freq%d_damp_%e_%e_elas_%e.dat" % (int(frequency), damping, damping2, config.elasticity), data)
 
         #print("Max disp: %e, max reaction: %e" % (maxDisp, maxReac))
         #print("Max disp: %d, max reaction: %d" % (maxDispIndex, maxReacIndex))

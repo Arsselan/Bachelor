@@ -6,7 +6,7 @@ import fem1d
 
 
 # 1
-def runCentralDifferenceMethodWithDamping(study, dt, nt, u0, u1, evalPos, damping, frequency, amplitude, finalPreDisp):
+def runCentralDifferenceMethodWithDamping(study, dt, nt, u0, u1, evalPos, damping, damping2, frequency, amplitude, finalPreDisp):
     M = study.getMassMatrix()
 
     # prepare result arrays
@@ -31,16 +31,20 @@ def runCentralDifferenceMethodWithDamping(study, dt, nt, u0, u1, evalPos, dampin
 
     print("Factorization ... ", flush=True)
     C = 0.5 * dt * (damping * M)
+    C2 = damping2 * M
     factorized = scipy.sparse.linalg.splu(M + C)
-
+    print("C norms: %e, %e" % ( np.linalg.norm( C * np.ones( C.shape[0] ) ), np.linalg.norm( C2 * np.ones( C.shape[0] ) ) ) )
     print("Time integration ... ", flush=True)
     for i in range(2, nt + 1):
         times[i] = i * dt
 
         internalLoad = study.K * u[i - 1]
+        vel = (u[i-1] - u[i-2]) / dt
+        vel2 = np.multiply(vel, np.abs(vel) )
+        #print( "C qua: %e, C lin: %e\n" % ( np.linalg.norm( C2 * vel2), np.linalg.norm( C * vel)) )
         u[i] = factorized.solve(
             M * (2 * u[i - 1] - u[i - 2]) + C * u[i-2] + dt ** 2 * (
-                study.F * study.config.source.ft((i - 1) * dt) - internalLoad))
+                study.F * study.config.source.ft((i - 1) * dt) - internalLoad - C2 * vel2 ))
 
         if 5 * i < nt:
             preDisp = 0.5 * (1 - np.cos(np.pi * 5 * i / nt)) * finalPreDisp
@@ -52,7 +56,7 @@ def runCentralDifferenceMethodWithDamping(study, dt, nt, u0, u1, evalPos, dampin
 
         a = (u[i] - 2 * u[i - 1] + u[i - 2]) / dt**2
         v = 0.5 * (u[i] - u[i - 2]) / dt
-        load = M * a + C * v + internalLoad
+        load = M * a + C * v + C2 * vel2 * 0.5 / dt + internalLoad
         reactionLeft[i-1] = load[0]
         reactionRight[i-1] = load[-1]
 
