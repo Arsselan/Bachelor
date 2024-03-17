@@ -5,10 +5,10 @@ import sys
 
 from context import fem1d
 
-dataEx = np.loadtxt("examples/shaker_experiments.dat")
+dataEx = np.loadtxt("examples/shaker_experiments_2.dat")
 
-nFrequencies = 14
-firstFrequency = 0
+nFrequencies = 10
+firstFrequency = 2
 lastFrequency = firstFrequency + nFrequencies
 
 def runStudy(params):
@@ -18,7 +18,8 @@ def runStudy(params):
         shutil.rmtree(outputDir)
     data = np.ndarray((nFrequencies, 4))
     for i in range(nFrequencies):
-        frequency = 100 + firstFrequency * 50 + i * 50
+        #frequency = 100 + firstFrequency * 50 + i * 50
+        frequency = 50 + i * 50
         print("Frequency: %e" % frequency)
         #exec(open("examples/timedomain_shaker.py").read())
         import examples.timedomain_shaker
@@ -158,13 +159,13 @@ def tangent( function, x, eps=1e-6 ):
 def gradientDescent( function, initial ):
     x = initial
     for i in range(100):
-        alpha = 0.001 * ( 1.0 + np.linalg.norm( x ) )
-        f, t = tangent( function, x, 1e-4 )
+        alpha = 0.01 * ( 1.0 + np.linalg.norm( x ) )
+        f, t = tangent( function, x, 1e-3 )
         print("Objective: %e" % f)
         print("Tangent: %e %e %e" % (t[0], t[1], t[2]))
         dx = alpha / np.linalg.norm( t ) * t
         print( "Delta x: %e %e %e" % (dx[0], dx[1], dx[2]))
-        x += dx
+        x -= dx
     return x
 
 def doGradientDescent():
