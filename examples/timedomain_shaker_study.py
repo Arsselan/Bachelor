@@ -61,8 +61,8 @@ def computeError(dataSim):
     errorStorage /= np.linalg.norm(dataEx[firstFrequency:lastFrequency, 1])
     errorLoss = np.linalg.norm( dataEx[firstFrequency:lastFrequency, 2] - dataSim[:, 4] )
     errorLoss /= np.linalg.norm(dataEx[firstFrequency:lastFrequency, 2])
-    #return errorStorage + errorLoss
-    return errorLoss
+    return errorStorage + errorLoss
+    #return errorLoss
 
 
 def objectiveFunction(params):
