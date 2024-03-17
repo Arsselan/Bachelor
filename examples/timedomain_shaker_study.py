@@ -94,14 +94,14 @@ def check(damping, damping2, elasticity, run=True):
 def objective_function_scipy(u):
     objective_function_scipy.count += 1
     print("New iteration: %d" % objective_function_scipy.count, "u: " , u)
-    objective = objectiveFunction([ u[0], u[1], u[2] ])
+    objective = objectiveFunction([ u[0], u[1], u[2]*1.0e3 ])
     if objective < objective_function_scipy.best:
         objective_function_scipy.best = objective
     else:
-        removeDir([ u[0], u[1], u[2] ])
+        removeDir([ u[0], u[1], u[2]*1.0e3 ])
     with open("iterations.dat", "a") as file:
         file.write("%d %e %e %e %e\n" % (
-        objective_function_scipy.count, u[0], u[1], u[2], objective))
+        objective_function_scipy.count, u[0], u[1], u[2]*1.0e3, objective))
     return objective
 objective_function_scipy.count = 0
 objective_function_scipy.best = 1e10
@@ -118,7 +118,7 @@ def optimize():
     #scipy.optimize.minimize(objective_function_scipy, [300, 4e4], method='L-BFGS-B')
 #    scipy.optimize.minimize(objective_function_scipy, [4.318325e+04, 0.0],
 #                            tol=0, bounds=[(0.0, 1e5), (0.0, 1e5)], options={'eps': 10, 'maxiter': 1000})
-    scipy.optimize.minimize(objective_function_scipy, [50, 50, 1.e4],
+    scipy.optimize.minimize(objective_function_scipy, [50.0, 50.0, 1.0e4],
                             tol=0, method='L-BFGS-B', options={'eps': 1, 'maxiter': 1000})
 #    scipy.optimize.minimize(objective_function_scipy, [6.215664e+02, 0.0, 4.318325e+04],
 #                            tol=0, method='L-BFGS-B', jac=None, options={'eps': 1.0, 'maxiter': 1000})
@@ -169,5 +169,5 @@ def gradientDescent( function, initial ):
     return x
 
 def doGradientDescent():
-    initial = np.array([6.215664e+02, 50.0, 4.318325e+04])
+    initial = np.array([50.0, 50.0, 400.0])
     x = gradientDescent( objective_function_scipy, initial )
