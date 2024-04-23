@@ -11,17 +11,18 @@ nFrequencies = 10
 firstFrequency = 2
 lastFrequency = firstFrequency + nFrequencies
 
+
 def runStudy(params):
-    print("\ndamping: %e, %e,  elasticity: %e\n" % (params[0], params[1], params[2]))
+    print("\n damping: %e, %e,  elasticity: %e\n" % (params[0], params[1], params[2]))
     outputDir = "shaker_damp%e_%e_elas%e" % (params[0], params[1], params[2])
     if os.path.exists(outputDir):
         shutil.rmtree(outputDir)
     data = np.ndarray((nFrequencies, 4))
     for i in range(nFrequencies):
-        #frequency = 100 + firstFrequency * 50 + i * 50
+        # frequency = 100 + firstFrequency * 50 + i * 50
         frequency = 50 + i * 50
         print("Frequency: %e" % frequency)
-        #exec(open("examples/timedomain_shaker.py").read())
+        # exec(open("examples/timedomain_shaker.py").read())
         import examples.timedomain_shaker
         save_stdout = sys.stdout
         sys.stdout = open('trash', 'w')
@@ -69,8 +70,7 @@ def objectiveFunction(params):
     runStudy(params)
     data = readData(params)
     error = computeError( data )
-    print("\n\ndamping: %e, %e, elasticity: %e " % (params[0], params[1], params[2]))
-    print(" ----> Error: %e \n\n" % error)
+    print("\n ----> Error: %e \n\n" % error)
     return error
 
 
@@ -94,14 +94,14 @@ def check(damping, damping2, elasticity, run=True):
 def objective_function_scipy(u):
     objective_function_scipy.count += 1
     print("New iteration: %d" % objective_function_scipy.count, "u: " , u)
-    objective = objectiveFunction([ u[0], u[1], u[2]*1.0e3 ])
+    objective = objectiveFunction([ u[0], u[1], u[2] ])
     if objective < objective_function_scipy.best:
         objective_function_scipy.best = objective
     else:
-        removeDir([ u[0], u[1], u[2]*1.0e3 ])
+        removeDir([ u[0], u[1], u[2] ])
     with open("iterations.dat", "a") as file:
         file.write("%d %e %e %e %e\n" % (
-        objective_function_scipy.count, u[0], u[1], u[2]*1.0e3, objective))
+        objective_function_scipy.count, u[0], u[1], u[2], objective))
     return objective
 objective_function_scipy.count = 0
 objective_function_scipy.best = 1e10
@@ -159,15 +159,15 @@ def tangent( function, x, eps=1e-6 ):
 def gradientDescent( function, initial ):
     x = initial
     for i in range(100):
-        alpha = 0.01 * ( 1.0 + np.linalg.norm( x ) )
+        alpha = 0.1 #0.01 * ( 1.0 + np.linalg.norm( x ) )
         f, t = tangent( function, x, 1e-3 )
         print("Objective: %e" % f)
         print("Tangent: %e %e %e" % (t[0], t[1], t[2]))
-        dx = alpha / np.linalg.norm( t ) * t
+        dx = - alpha / np.linalg.norm( t ) * t
         print( "Delta x: %e %e %e" % (dx[0], dx[1], dx[2]))
-        x -= dx
+        x += dx
     return x
 
 def doGradientDescent():
-    initial = np.array([50.0, 50.0, 400.0])
+    initial = np.array([100.0, 1.0, 40000.0])
     x = gradientDescent( objective_function_scipy, initial )
