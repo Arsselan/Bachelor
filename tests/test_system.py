@@ -145,7 +145,7 @@ class TestSystem(unittest.TestCase):
 
         system = fem1d.TripletSystem(ansatz)
 
-        matrices = fem1d.WaveEquationStiffnessMatrixAndLoadVector(1.0, source)
+        matrices = fem1d.WaveEquationStiffnessMatrixAndLoadVector(1.0, 1.0, source)
         fem1d.computeSystemMatrices(system, ansatz, quadratureK, matrices)
 
         matrices = fem1d.WaveEquationMassMatrix(1.0)

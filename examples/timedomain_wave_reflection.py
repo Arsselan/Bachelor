@@ -8,7 +8,7 @@ if 'config' not in locals():
         right=1.2,
         extra=0.8*1.2/120,
         #extra=0.01495,
-
+        
         # method
         ansatzType='Lagrange',
         # ansatzType = 'InterpolatorySpline',
@@ -28,6 +28,11 @@ if 'config' not in locals():
 
         eigenvalueStabilizationM=1e-4
     )
+
+# parameters
+config.density = 1.0
+config.elasticity = 1.0
+
 
 if 0:
     config.ansatzType = 'Lagrange'
