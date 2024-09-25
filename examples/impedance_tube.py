@@ -26,7 +26,7 @@ def alphaS(x):
     return 1e-8
 
 
-source = fem1d.sources.RicklersWavelet(10.0, alphaF)
+source = fem1d.sources.RicklersWavelet(100.0, alphaF)
 amplitude = 0.03
 
 # method

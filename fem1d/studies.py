@@ -80,15 +80,15 @@ class EigenvalueStudy:
         if config.spectral:
             system = fem1d.TripletSystem(ansatz)
 
-            matrices = fem1d.WaveEquationStiffnessMatrixAndLoadVector(1.0, config.source.fx)
+            matrices = fem1d.WaveEquationStiffnessMatrixAndLoadVector(config.density, config.source.fx)
             fem1d.computeSystemMatrices(system, ansatz, quadratureK, matrices)
 
-            matrices = fem1d.WaveEquationMassMatrix(1.0)
+            matrices = fem1d.WaveEquationMassMatrix(config.density)
             matrices = fem1d.WaveEquationLumpedMatrices(matrices)
             fem1d.computeSystemMatrices(system, ansatz, quadratureM, matrices)
         else:
             system = fem1d.TripletSystem(ansatz)
-            matrices = fem1d.WaveEquationStandardMatrices(1.0, 1.0, config.source.fx)
+            matrices = fem1d.WaveEquationStandardMatrices(config.density, config.elasticity, config.source.fx)
             matrices = fem1d.WaveEquationLumpedMatrices(matrices)
 
             if config.eigenvalueStabilizationM > 0.0:

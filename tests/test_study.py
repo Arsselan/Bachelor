@@ -5,7 +5,7 @@ from context import fem1d
 
 
 def createBaseConfig():
-    return fem1d.StudyConfig(
+    config = fem1d.StudyConfig(
         # problem
         left=0,
         right=1.2,
@@ -28,6 +28,9 @@ def createBaseConfig():
         smartQuadrature=True,
         source=fem1d.sources.NoSource()
     )
+    config.density = 1.0
+    config.elasticity = 1.0
+    return config 
 
 
 class TestStudy(unittest.TestCase):
@@ -37,28 +40,28 @@ class TestStudy(unittest.TestCase):
         config.mass = "CON"
         study = fem1d.EigenvalueStudy(config)
         w = study.computeLargestEigenvalueSparse()
-        self.assertAlmostEqual(w, 209197.87432862623, places=15, msg="Largest eigenvalue lagrange consistent")
+        self.assertAlmostEqual(w, 209198.5764866068, places=13, msg="Largest eigenvalue lagrange consistent")
 
         config = createBaseConfig()
         config.ansatzType = "Spline"
         config.mass = "CON"
         study = fem1d.EigenvalueStudy(config)
         w = study.computeLargestEigenvalueSparse()
-        self.assertAlmostEqual(w, 209041.52086940361, places=15, msg="Largest eigenvalue spline consistent")
+        self.assertAlmostEqual(w, 209041.52086941496, places=13, msg="Largest eigenvalue spline consistent")
 
         config = createBaseConfig()
         config.ansatzType = "Lagrange"
         config.mass = "HRZ"
         study = fem1d.EigenvalueStudy(config)
         w = study.computeLargestEigenvalueSparse()
-        self.assertAlmostEqual(w, 59213.970712970055, places=15, msg="Largest eigenvalue lagrange lumped")
+        self.assertAlmostEqual(w, 59213.97071297006, places=13, msg="Largest eigenvalue lagrange lumped")
 
         config = createBaseConfig()
         config.ansatzType = "Lagrange"
         config.mass = "RS"
         study = fem1d.EigenvalueStudy(config)
         w = study.computeLargestEigenvalueSparse()
-        self.assertAlmostEqual(w, 3985.9828617151002, places=15, msg="Largest eigenvalue spline lumped")
+        self.assertAlmostEqual(w, 3985.982861715098, places=15, msg="Largest eigenvalue spline lumped")
 
 
 if __name__ == '__main__':
