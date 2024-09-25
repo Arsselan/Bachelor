@@ -1,6 +1,6 @@
 # fem1d
 
-Waves1d is a simple finite element code tailored to solve one-dimensional problems with a variety of different shape functions and quadrature rules.
+This is a simple finite element code tailored to solve one-dimensional problems with a variety of different shape functions and quadrature rules.
 Low level functions are implemented in C++ and compiled to Python modules using pybind11, which is included as a git submodule. 
 Therefore, when cloning the repository, use
 ```
@@ -42,6 +42,9 @@ python3 -i -m examples/NAME_OF_THE_EXAMPLE_FILE.py
 ## Physics
 
 ### 1d wave equation
+$$
+\rho \, \ddot{u} - E \, u'' = f
+$$
 
 ### 1d vibro-acoustics
 
