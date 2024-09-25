@@ -78,10 +78,13 @@ leftFactor = 0
 
 
 def computeRightFactor(time):
+    if time < 0.0:
+        return 0.0
     loadTime = time * tMax / 20.0
-    # rightFactor = 0.5 * (1 - np.cos(2 * np.pi * time / 5)) * 1e3 * 0.5
-    rightFactor = - 0.5 * np.cos(2 * np.pi * loadTime / 5) * 1e3 * loadTime*loadTime * 0.01
-    #rightFactor = 0.5 * np.sin(2 * np.pi * time / 5) * 1e3
+    # oscillating
+    rightFactor = - 0.5 * np.cos(2 * np.pi * loadTime / 6) * 1e3 * loadTime*loadTime * 0.005
+    # linear
+    rightFactor = loadTime * 0.25e2
     return rightFactor
 
 
@@ -113,12 +116,17 @@ def postProcess(animationSpeed=4, factor=1):
     forces = times.copy()
     for i in range(forces.size):
         forces[i] = computeRightFactor(times[i])
-        
+    # displacement and force over time
     fem1d.plot(times, [evalU[:, -1], evalU[:, 0]], ["Disp. right", "Disp. left"], ["time", "displacement"])
     fem1d.plot(times, [forces], ["Force"], ["time", "force"])
-    
+    # load displacement curve
     fem1d.plot(evalU[:, -1], [forces], ["Force"], ["displacement", "force"])
+    title1 = config.ansatzType + " n%d" % config.n + " p%d" % config.p + " " + config.mass + " dt%e" % dt + " load-disp"
+    fileBaseName1 = fem1d.getFileBaseNameAndCreateDir("results/quasi_static_plastic/", title1.replace(' ', '_'))
+    fem1d.writeColumnFile(fileBaseName1 + ".dat", [evalU[:, -1], forces])
+    # animation
     fem1d.postProcessTimeDomainSolution(study, evalNodes, evalU, tMax, nt, animationSpeed, factor)
+    # quadrature point data
     figure, ax = plt.subplots()
     nqp = study.config.p + 1
     qpData = np.ndarray((study.config.n*nqp, 2))
@@ -128,7 +136,7 @@ def postProcess(animationSpeed=4, factor=1):
         ax.plot(study.quadratureK.points[iElement], epsPla[iElement], "-", label=str(iElement))
     title2 = config.ansatzType + " n%d" % config.n + " p%d" % config.p + " " + config.mass + " dt%e" % dt + " eps"
     fileBaseName2 = fem1d.getFileBaseNameAndCreateDir("results/quasi_static_plastic/", title2.replace(' ', '_'))
-    fem1d.writeColumnFile(fileBaseName2 + '.dat', (qpData[:, 0], qpData[:, 1]))
+    fem1d.writeColumnFile(fileBaseName2 + ".dat", (qpData[:, 0], qpData[:, 1]))
     plt.show()
 
 
