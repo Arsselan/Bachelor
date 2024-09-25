@@ -44,6 +44,66 @@ def runCentralDifferenceMethod(study, dt, nt, u0, u1, evalPos):
 
 
 # 1
+def runCentralDifferenceMethodWithDamping(study, dt, nt, u0, u1, evalPos, damping, damping2, frequency, amplitude, finalPreDisp):
+    M = study.getMassMatrix()
+
+    # prepare result arrays
+    u = np.zeros((nt + 1, M.shape[0]))
+    fullU = np.zeros((nt + 1, study.ansatz.nDof()))
+    evalU = np.zeros((nt + 1, len(evalPos)))
+
+    times = np.zeros(nt + 1)
+    reactionLeft = np.zeros(nt + 1)
+    reactionRight = np.zeros(nt + 1)
+
+    iMat = study.ansatz.interpolationMatrix(evalPos)
+
+    # set initial conditions
+    times[0] = -dt
+    times[1] = 0.0
+    u[0] = study.system.getReducedVector(u0)
+    u[1] = study.system.getReducedVector(u1)
+    for i in range(2):
+        fullU[i] = study.system.getFullVector(u[i])
+        evalU[i] = iMat * fullU[i]
+
+    print("Factorization ... ", flush=True)
+    C = 0.5 * dt * (damping * M + damping2 * study.K)
+    factorized = scipy.sparse.linalg.splu(M + C)
+
+    print("Time integration ... ", flush=True)
+    for i in range(2, nt + 1):
+        times[i] = i * dt
+
+        internalLoad = study.K * u[i - 1]
+        vel = (u[i-1] - u[i-2]) / dt
+        vel2 = np.multiply(vel, np.abs(vel) )
+        #print( "C qua: %e, C lin: %e\n" % ( np.linalg.norm( C2 * vel2), np.linalg.norm( C * vel)) )
+        u[i] = factorized.solve(
+            M * (2 * u[i - 1] - u[i - 2]) + C * u[i-2] + dt ** 2 * (
+                study.F * study.config.source.ft((i - 1) * dt) - internalLoad ))
+
+        if 5 * i < nt:
+            preDisp = 0.5 * (1 - np.cos(np.pi * 5 * i / nt)) * finalPreDisp
+        else:
+            preDisp = finalPreDisp
+
+        u[i][-1] = np.sin(2*np.pi*frequency*times[i]) * amplitude + preDisp
+        u[i][0] = 0
+
+        a = (u[i] - 2 * u[i - 1] + u[i - 2]) / dt**2
+        v = 0.5 * (u[i] - u[i - 2]) / dt
+        load = M * a + C * v + internalLoad
+        reactionLeft[i-1] = load[0]
+        reactionRight[i-1] = load[-1]
+
+        fullU[i] = study.system.getFullVector(u[i])
+        evalU[i] = iMat * fullU[i]
+
+    return u, fullU, evalU, iMat, times, reactionLeft, reactionRight
+
+
+# 1
 def runCentralDifferenceMethodLowMemory(study, dt, nt, u0, u1, evalPos, evalTimes):
     M = study.getMassMatrix()
 
