@@ -10,7 +10,7 @@ from context import fem1d
 left = 0
 right = 1.2
 #extra = 0.099 * 0.1
-#extra = 0.005 * 0.8
+extra = 0.005 * 0.8
 
 # method
 ansatzType = 'Lagrange'

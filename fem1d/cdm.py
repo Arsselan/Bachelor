@@ -6,7 +6,7 @@ import fem1d
 
 
 # 1
-def runCentralDifferenceMethodWithDamping(study, dt, nt, u0, u1, evalPos, damping, damping2, frequency, amplitude, finalPreDisp):
+def runCentralDifferenceMethodWithDamping(study, dt, nt, u0, u1, evalPos, damping, frequency, amplitude, finalPreDisp):
     M = study.getMassMatrix()
 
     # prepare result arrays
@@ -30,7 +30,22 @@ def runCentralDifferenceMethodWithDamping(study, dt, nt, u0, u1, evalPos, dampin
         evalU[i] = iMat * fullU[i]
 
     print("Factorization ... ", flush=True)
-    C = 0.5 * dt * (damping * M + damping2 * study.K)
+    if len(damping) == 1:
+        C = 0.5 * dt * damping[0] * M
+    elif len(damping) > 1:
+        C = 0.5 * dt * (damping[0] * M + damping[1] * study.K)
+
+    if len(damping) > 2:
+        facM = scipy.sparse.linalg.splu(M)
+        fullK = study.K.todense()
+        invMK = facM.solve(fullK)
+        for i in range(len(damping)-2):
+            C += (0.5 * dt * damping[i+2]) * invMK
+            invMK *= invMK
+        C = scipy.sparse.csr_matrix(C)
+
+    # print("C: ", C)
+
     factorized = scipy.sparse.linalg.splu(M + C)
 
     print("Time integration ... ", flush=True)
