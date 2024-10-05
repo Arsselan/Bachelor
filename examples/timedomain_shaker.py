@@ -2,7 +2,7 @@ import numpy as np
 import os
 from context import fem1d
 
-def run(extraDelta, params, frequency, disablePlots = False):
+def run(extraDelta = 0.0, damping = 0.1, damping2 = 0.1, elasticity = 10000, frequency = 200, disablePlots = False):
     if 'config' not in locals():
         config = fem1d.StudyConfig(
             # problem

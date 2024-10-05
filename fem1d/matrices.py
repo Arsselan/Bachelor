@@ -39,7 +39,8 @@ class WaveEquationStandardMatrices:
 
 
 class WaveEquationStiffnessMatrixAndLoadVector:
-    def __init__(self, elasticity, bodyLoad):
+    def __init__(self, density, elasticity, bodyLoad):
+        self.density = density
         self.elasticity = elasticity
         self.bodyLoad = bodyLoad
 

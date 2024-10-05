@@ -48,24 +48,26 @@ def GLL(nPoints, epsilon=1e-15):
             error = 1.0
 
             while error > epsilon:
-                y = dLgP(nPoints - 1, xi)
-                y1 = d2LgP(nPoints - 1, xi)
-                y2 = d3LgP(nPoints - 1, xi)
+                y = dLgP(nPoints - 1, xi)[0]
+                y1 = d2LgP(nPoints - 1, xi)[0]
+                y2 = d3LgP(nPoints - 1, xi)[0]
 
                 dx = 2 * y * y1 / (2 * y1 ** 2 - y * y2)
 
                 xi -= dx
+                
                 error = abs(dx)
 
             x[i] = -xi
+
             x[nPoints - i - 1] = xi
 
-            w[i] = 2 / (nPoints * (nPoints - 1) * lgP(nPoints - 1, x[i]) ** 2)
+            w[i] = 2 / (nPoints * (nPoints - 1) * lgP(nPoints - 1, x[i])[0] ** 2)
             w[nPoints - i - 1] = w[i]
 
         if nPoints % 2 != 0:
             x[n_2] = 0
-            w[n_2] = 2.0 / ((nPoints * (nPoints - 1)) * lgP(nPoints - 1, np.array(x[n_2])) ** 2)
+            w[n_2] = 2.0 / ((nPoints * (nPoints - 1)) * lgP(nPoints - 1, x[n_2])[0] ** 2)
 
     return np.array(x), np.array(w)
 
