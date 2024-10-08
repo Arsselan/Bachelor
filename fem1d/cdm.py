@@ -44,7 +44,7 @@ def runCentralDifferenceMethod(study, dt, nt, u0, u1, evalPos):
 
 
 # 1
-def runCentralDifferenceMethodWithDamping(study, dt, nt, u0, u1, evalPos, damping, damping2, frequency, amplitude, finalPreDisp):
+def runCentralDifferenceMethodWithDamping(study, dt, nt, u0, u1, evalPos, damping, frequency, amplitude, finalPreDisp):
     M = study.getMassMatrix()
 
     # prepare result arrays
@@ -77,9 +77,10 @@ def runCentralDifferenceMethodWithDamping(study, dt, nt, u0, u1, evalPos, dampin
         facM = scipy.sparse.linalg.splu(M)
         fullK = study.K.todense()
         invMK = facM.solve(fullK)
+        powMK = invMK.copy();
         for i in range(len(damping)-2):
-            C += (0.5 * dt * damping[i+2]) * invMK
-            invMK *= invMK
+            C += (0.5 * dt * damping[i+2]) * powMK * fullK
+            powMK = powMK * invMK
         C = scipy.sparse.csr_matrix(C)
 
     # print("C: ", C)

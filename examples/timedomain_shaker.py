@@ -2,7 +2,7 @@ import numpy as np
 import os
 from context import fem1d
 
-def run(extraDelta = 0.0, damping = 0.1, damping2 = 0.1, elasticity = 10000, frequency = 200, disablePlots = False):
+def run(extraDelta = 0.0, params = [ 0.5e5, 0.5, 0.1e-5, 0.1e-10  ], frequency = 200, disablePlots = False):
     if 'config' not in locals():
         config = fem1d.StudyConfig(
             # problem
@@ -143,7 +143,7 @@ def run(extraDelta = 0.0, damping = 0.1, damping2 = 0.1, elasticity = 10000, fre
         reacRight = shift(reactionRight[start:end])
 
         if not disablePlots:
-            fem1d.plot(disp, [reacLeft, reacRight, config.elasticity * disp / L], ["force left", "force right", "force static"])
+            fem1d.plot(disp, [reacLeft, reacRight, config.elasticity * disp / L], ["force left", "force right", "force static"], ["disp * E/L"])
 
         storageLeft, lossLeft, deltaLeft, deltaStorageLeft, deltaLossLeft = computeStorageAndLoss(disp, reacLeft)
         storageRight, lossRight, deltaRight, deltaStorageRight, deltaLossRight = computeStorageAndLoss(disp, reacRight)
@@ -168,7 +168,7 @@ def run(extraDelta = 0.0, damping = 0.1, damping2 = 0.1, elasticity = 10000, fre
         print("storage loss delta right: %e, %e, %e" % (storageRight, lossRight, deltaRight))
 
         if not disablePlots:
-            fem1d.plot(times[start:end], [normalize(disp), normalize(reacLeft), normalize(reacRight)], ["disp", "left", "right"])
+            fem1d.plot(times[start:end], [normalize(disp), normalize(reacLeft), normalize(reacRight)], ["disp", "left", "right"], ["time"])
 
         return storageLeft, lossLeft, deltaLeft, deltaStorageLeft, deltaLossLeft
 
@@ -182,9 +182,11 @@ def run(extraDelta = 0.0, damping = 0.1, damping2 = 0.1, elasticity = 10000, fre
 
 
     if not disablePlots:
-        fem1d.plot(times, [1e6 * u[:, -1], reactionLeft, reactionRight], ["disp. right", "force left", "force right"])
+        fem1d.plot(times, [1e6 * u[:, -1], reactionLeft, reactionRight], ["disp. right", "force left", "force right"], ["time"])
 
 
     storageLeft, lossLeft, deltaLeft, deltaStorageLeft, deltaLossLeft = evaluate()
-    postProcess(0.02, 1000)
+
+    if not disablePlots:
+        postProcess(0.02, 1000)
 
