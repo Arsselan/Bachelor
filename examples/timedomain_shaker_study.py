@@ -115,9 +115,9 @@ def objective_function_scipy(u):
     # paramters entering this function (u) being of the same order of magnitude
     umod = list(u)
     umod[0] *= 1e5
-    umod[1] *= 1e4
-    umod[2] *= 1
-    umod[3] *= 1e-14
+    umod[1] *= 1
+    umod[2] *= 1e-5
+    umod[3] *= 1e-12
     ulist = list(u)
 
     objective_function_scipy.count += 1
