@@ -45,12 +45,10 @@ def plotStudy(data):
 
 
 def plotReference():
-    #data = np.loadtxt("examples/shaker_experiments_2.dat")
-    data = dataEx
-    fem1d.plot(data[:, 0], [
-               data[:, 1], data[:, 2]*10,
-               data[:, 3], data[:, 4]*10,
-               data[:, 5], data[:, 6]*10],
+    fem1d.plot(dataEx[:, 0], [
+               dataEx[:, 1], dataEx[:, 2]*10,
+               dataEx[:, 3], dataEx[:, 4]*10,
+               dataEx[:, 5], dataEx[:, 6]*10],
                ["150 storage", "150 loss$\cdot$10","77 storage", "77 loss$\cdot$10","nano storage", "nano loss$\cdot$10"])
 
 
@@ -80,7 +78,7 @@ def objectiveFunction(params):
     data = readData(params)
     error = computeError( data )
     print("\n ----> Error: %e \n\n" % error)
-    #plotBoth(data)
+    plotBoth(data)  # @Arsselan: Comment out for production
     return error
 
 
@@ -112,10 +110,13 @@ def check(params, run=True, disablePlots=False):
 
 def objective_function_scipy(u):
 
+
+    # @Arsselan: Change typical parameter factors to end up in good ranges with all 
+    # paramters entering this function (u) being of the same order of magnitude
     umod = list(u)
     umod[0] *= 1e5
-    umod[1] *= 1e2
-    umod[2] *= 1e-5
+    umod[1] *= 1e4
+    umod[2] *= 1
     umod[3] *= 1e-14
     ulist = list(u)
 
@@ -124,7 +125,7 @@ def objective_function_scipy(u):
     objective = objectiveFunction(np.array(umod))
     if objective < objective_function_scipy.best:
         objective_function_scipy.best = objective
-#    else:
+#    else:                  # @Arsselan: Comment in for less disc usage
 #        removeDir(u)
     with open("iterations.dat", "a") as file:
         file.write("%d %e" % (objective_function_scipy.count, objective))
@@ -141,7 +142,8 @@ objective_function_scipy.best = 1e10
 def doScipyOptimize():
     import scipy
     from scipy import optimize
-    scipy.optimize.minimize(objective_function_scipy, np.array([0.5, 0.5, 0.1, 0.1]),
+    initialGuess = np.array([2.0, 0.5, 0.1, 0.1]) # @Arsselan: Change initial parameters here
+    scipy.optimize.minimize(objective_function_scipy, initialGuess,
                             tol=0, method='L-BFGS-B', bounds=[(0.01, 10.0), (0.0, 10.0), (0.0, 10.0), (0.0, 10.0)], options={'eps': 1e-4, 'maxiter': 1000})
 
 
@@ -160,43 +162,29 @@ def doScipyOptimize():
 
 
 def objective_function_gfo(para):
-    u = [para["E"], para["D1"], para["D2"]]
+    u = [para["E"], para["D1"], para["D2"], para["D3"]]
     return -objective_function_scipy(u)
 
 
 def doParticleSwarm():
     from gradient_free_optimizers import ParticleSwarmOptimizer
+    # @Arsselan: Change initial parameters and range here
     search_space = {
                     "E": np.arange(1e4, 2e4, 1e1),
                     "D1": np.arange(1, 10, 0.01),
-                    "D2": np.arange(1, 10, 0.01)
+                    "D2": np.arange(1, 10, 0.01),
+                    "D3": np.arange(1, 10, 0.01)
                     }
     opt = ParticleSwarmOptimizer(search_space, population=5)
     opt.search(objective_function_gfo, n_iter=500)
 
 
-#Results: 'objective_function_gfo'
-#Best
-#score: -1.738512993964275
-#Best
-#parameter:
-#'E': 10500.0
-#'D1': 7.900000000000006
-#'D2': 8.000000000000007
 
-#Random
-#seed: 51934385
 
-#Evaluation
-#time: 1160.2901020050049
-#sec[99.99 %]
-#Optimization
-#time: 0.07094621658325195
-#sec[0.01 %]
-#Iteration
-#time: 1160.3610482215881
-#sec[2.32
-#sec / iter]
+
+
+
+
 
 def tangent( function, x, eps=1e-6 ):
     f = function(x)
@@ -239,6 +227,7 @@ def gradientDescent( function, initial ):
 
 def doGradientDescent():
 
+    # @Arsselan: Change initial parameters here
     initial = np.array([4.0, 1.0, 5.0, 1.0])
     x = gradientDescent( objective_function_scipy, initial )
 
