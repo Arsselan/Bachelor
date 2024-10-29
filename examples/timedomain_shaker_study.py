@@ -4,14 +4,15 @@ import os
 import sys
 
 from context import fem1d
-
+#bester Wert bei nFrequencies = 2 und firstFrequency = 7
 dataEx = np.loadtxt("examples/shaker_experiments_2.dat")
-
-nFrequencies = 12
-firstFrequency = 0
+#firstFrequency und nFrequencies verändern 
+nFrequencies = 2 #hoch
+firstFrequency = 7
 lastFrequency = firstFrequency + nFrequencies
-
-
+#letze Frequenz muss kleiner 12 sein
+#Summe = 6
+# firstFrequency muss größer als nFrequencies sein
 def getOutputDir(params):
     outputDir = "shaker_elas%e_damp" % params[0]
     for i in range(len(params)):
@@ -43,13 +44,16 @@ def runStudy(params, disablePlots=True):
 def plotStudy(data):
     fem1d.plot(data[:, 0], [data[:, 1], data[:, 2], data[:, 3]], ["storage", "loss", "delta"])
 
+def plotIteration():
+    iterationData = np.loadtxt('iterationplot.dat')
+    fem1d.plot(iterationData[:,0],[iterationData[:,1]],['target'],['iteration','target'],'-o')
 
 def plotReference():
     fem1d.plot(dataEx[:, 0], [
                dataEx[:, 1], dataEx[:, 2]*10,
                dataEx[:, 3], dataEx[:, 4]*10,
                dataEx[:, 5], dataEx[:, 6]*10],
-               ["150 storage", "150 loss$\cdot$10","77 storage", "77 loss$\cdot$10","nano storage", "nano loss$\cdot$10"])
+               ["150 storage", "150 loss$\\cdot$10","77 storage", "77 loss$\\cdot$10","nano storage", "nano loss$\\cdot$10"])
 
 
 def readData(params):
@@ -61,8 +65,8 @@ def plotBoth(dataSim):
     fem1d.plot(dataEx[firstFrequency:lastFrequency, 0], [
                dataEx[firstFrequency:lastFrequency, 1], dataEx[firstFrequency:lastFrequency, 2]*10,
                dataSim[:, 1], dataSim[:, 2]*10 ],
-               ["150 storage", "150 loss$\cdot$10",
-                "sim storage", "sim loss$\cdot$10"])
+               ["150 storage", "150 loss$\\cdot$10",
+                "sim storage", "sim loss$\\cdot$10"])
 
 def computeError(dataSim):
     errorStorage = np.linalg.norm(dataEx[firstFrequency:lastFrequency, 1] - dataSim[:, 1])
@@ -142,9 +146,9 @@ objective_function_scipy.best = 1e10
 def doScipyOptimize():
     import scipy
     from scipy import optimize
-    initialGuess = np.array([2.0, 0.5, 0.1, 0.1]) # @Arsselan: Change initial parameters here
+    initialGuess = np.array([3.954796, 0.3999992, 0.2338214, 0.2363156]) # @Arsselan: Change initial parameters here
     scipy.optimize.minimize(objective_function_scipy, initialGuess,
-                            tol=0, method='L-BFGS-B', bounds=[(0.01, 10.0), (0.0, 10.0), (0.0, 10.0), (0.0, 10.0)], options={'eps': 1e-4, 'maxiter': 1000})
+                            tol=0, method='L-BFGS-B', bounds=[(0.01, 10.0), (0.0, 10.0), (0.0, 10.0), (0.0, 10.0)], options={'eps': 1e-1, 'maxiter': 1000})
 
 
 
@@ -170,11 +174,18 @@ def doParticleSwarm():
     from gradient_free_optimizers import ParticleSwarmOptimizer
     # @Arsselan: Change initial parameters and range here
     search_space = {
+        "E": np.arange(3e3, 4.0e3, 1e-1),     # E um 3.954796 herum
+        "D1": np.arange(0.39, 0.41, 1e-3),       # D1 um 0.3999992 herum
+        "D2": np.arange(0.22, 0.25, 1e-3),       # D2 um 0.2338214 herum
+        "D3": np.arange(0.22, 0.25, 1e-3)        # D3 um 0.2363156 herum
+    }
+    '''search_space = {
                     "E": np.arange(1e4, 2e4, 1e1),
                     "D1": np.arange(1, 10, 0.01),
                     "D2": np.arange(1, 10, 0.01),
                     "D3": np.arange(1, 10, 0.01)
                     }
+    '''
     opt = ParticleSwarmOptimizer(search_space, population=5)
     opt.search(objective_function_gfo, n_iter=500)
 
@@ -186,7 +197,7 @@ def doParticleSwarm():
 
 
 
-def tangent( function, x, eps=1e-6 ):
+def tangent( function, x, eps=1e3 ):
     f = function(x)
     n = x.shape[0]
     t = np.ndarray( n )
@@ -208,7 +219,7 @@ def gradientDescent( function, initial ):
     x = initial
     for i in range(100):
         alpha = 0.01# * ( 1.0 + np.linalg.norm( x ) )
-        f, t = tangent( function, x, 1e-5 )
+        f, t = tangent( function, x, 1e-1 ) #vorher -5
         print("Objective: %e" % f)
         print("Tangent: ", t)
 
@@ -228,6 +239,6 @@ def gradientDescent( function, initial ):
 def doGradientDescent():
 
     # @Arsselan: Change initial parameters here
-    initial = np.array([4.0, 1.0, 5.0, 1.0])
+    initial = np.array([3.954796, 0.3999992, 0.2338214, 0.2363156])
     x = gradientDescent( objective_function_scipy, initial )
 

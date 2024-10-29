@@ -15,14 +15,14 @@ def find_nearest_index(array, value):
     return idx
 
 
-def plot(ptx, pty, labels=[], axes=[]):
+def plot(ptx, pty, labels=[], axes=[], style ='-'):
     figure, ax = plt.subplots()
     if len(labels) == 0:
         for i in range(len(pty)):
             ax.plot(ptx, pty[i])
     else:
         for i in range(len(pty)):
-            ax.plot(ptx, pty[i], label=labels[i])
+            ax.plot(ptx, pty[i], style, label=labels[i])
         plt.legend()
     if len(axes) > 0:
         plt.xlabel(axes[0])
