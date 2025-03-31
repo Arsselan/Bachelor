@@ -72,9 +72,9 @@ def computeError(dataSim, returnAllError= False):
     errorLoss /= np.linalg.norm(dataEx[firstFrequency:lastFrequency, 2])
     if returnAllError:
         return [errorStorage + errorLoss, errorLoss, errorStorage]
-    return errorStorage + errorLoss
+    #return errorStorage + errorLoss
     #return errorLoss
-    #return errorStorage
+    return errorStorage
 
 def objectiveFunction(params):
     runStudy(params)
@@ -100,8 +100,8 @@ def objective_function_scipy(u):
     umod[0] *= 1e5
     umod[1] *= 1
     umod[2] *= 1e-5
-    umod[3] *= 1e-12
-    umod[4] *= 1e-17
+    umod[3] *= 1e-10
+
     ulist = list(u)
     objective_function_scipy.count += 1
     print("New iteration: %d" % objective_function_scipy.count, "u: ", u)
@@ -120,13 +120,13 @@ objective_function_scipy.filename = ""
 
 def doScipyOptimize():
     from scipy import optimize
-    initialGuess = np.array([4.0, 0.3, 0.3, 0.3, 0.3])
-    objective_function_scipy.filename = f"ZNEUNEUNETestiteration_SO_storage_{initialGuess[0]:.2f}_{initialGuess[1]:.2f}_{initialGuess[2]:.2f}_{initialGuess[3]:.2f}_nFrequenz={nFrequencies}_firstFrequenz={firstFrequency}.dat"
+    initialGuess = np.array([1.0, 1, 1, 1])
+    objective_function_scipy.filename = f"ZTestiteration_SO_storage_{initialGuess[0]:.2f}_{initialGuess[1]:.2f}_{initialGuess[2]:.2f}_{initialGuess[3]:.2f}_nFrequenz={nFrequencies}_firstFrequenz={firstFrequency}.dat"
     optimize.minimize(objective_function_scipy,
                       initialGuess,
                       #tol=0,
                       method='L-BFGS-B',
-                      bounds=[(0.01, 10.0), (0.0, 10.0), (0.0, 10.0), (0.0, 10.0), (0.0, 10.0)],
+                      bounds=[(0.01, 10.0), (0.0, 10.0), (0.0, 10.0), (0.0, 10.0)],
                       options={'eps': 1e-1, 'maxiter': 150})
     #return result.fun
 def objective_function_gfo(para):
@@ -196,8 +196,8 @@ def doGradientDescent():
 
 
 def Plot_Frequenz():
-    filename = "Z_Iter_Überprüfung_1\iteration_SO_4.00_0.30_0.30_0.30_nFrequenz=11_firstFrequenz=1.dat"
-    row = 14
+    filename = "iteration_storage_5VAR_SO_2.00_0.01_0.01_0.02_0.02_nFrequenz=11_firstFrequenz=1.dat"
+    row = 185
     data = np.loadtxt(filename)
     param = data[row,2:]
     print("Parameters: ", param)
@@ -205,7 +205,7 @@ def Plot_Frequenz():
     param[0] *= 1e5
     param[1] *= 1
     param[2] *= 1e-5
-    param[3] *= 1e-12
+    param[3] *= 1e-10
     #param[4] *= 1e-23
     data = readData(param)
     outputDir = getOutputDir(param)

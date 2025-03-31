@@ -43,26 +43,31 @@ def plotBoth(dataSim):
     figure, ax = plt.subplots()
     ptx = dataEx[:, 0]
     pty = dataEx[:, 1]
-    ax.plot(ptx, pty, "-o", label = "150 Ex Speichermodul")
+    ax.plot(ptx, pty, "-o", label="Speichermodul (Experiment)")
     ptx = dataEx[:, 0]
     pty = dataEx[:, 2]
-    ax.plot(ptx, pty, "-o", label = "150 Ex Verlustmodul")
+    ax.plot(ptx, pty, "-o", label="Verlustmodul (Experiment)")
     ptx = dataSim[:, 0]
     pty = dataSim[:, 1]
-    ax.plot(ptx, pty, "-o", label = "150 Sim Speichermodul")
+    ax.plot(ptx, pty, "-o", label="Speichermodul (Simulation)")
     ptx = dataSim[:, 0]
     pty = dataSim[:, 2]
-    ax.plot(ptx, pty, "-o", label = "150 Sim Verlustmodul")
-    figure.set_size_inches(3,2)
-    plt.legend()
-    plt.xlabel("Frequenz")
-    plt.ylabel("Speichermodul/Verlustmodul")
+    ax.plot(ptx, pty, "-o", label="Verlustmodul (Simulation)")
+    
+    figure.set_size_inches(10, 6)
+    
+    plt.legend(fontsize=20)
+    plt.xlabel("Frequenz", fontsize=22)
+    plt.ylabel("Speichermodul/Verlustmodul", fontsize=22)
+    plt.xticks(fontsize=18)
+    plt.yticks(fontsize=18)
+    plt.grid(True, linestyle='-', alpha=0.7)
     plt.tight_layout()
-    figure.savefig("")
+    plt.savefig('ZZZZZZZZZZ', format='pdf')
     plt.show()
 
-def readData(params):
-    outputDir = getOutputDir(params)
+def readData(params, path="."):
+    outputDir = path+"/"+getOutputDir(params)
     return np.loadtxt(outputDir + "/shaker_freq_storage_loss_delta_left.dat")
 
 def computeError(dataSim, returnAllError= False):
@@ -101,7 +106,6 @@ def objective_function_scipy(u):
     umod[1] *= 1
     umod[2] *= 1e-5
     umod[3] *= 1e-12
-    umod[4] *= 1e-17
     ulist = list(u)
     objective_function_scipy.count += 1
     print("New iteration: %d" % objective_function_scipy.count, "u: ", u)
@@ -120,13 +124,13 @@ objective_function_scipy.filename = ""
 
 def doScipyOptimize():
     from scipy import optimize
-    initialGuess = np.array([4.0, 0.3, 0.3, 0.3, 0.3])
-    objective_function_scipy.filename = f"ZNEUNEUNETestiteration_SO_storage_{initialGuess[0]:.2f}_{initialGuess[1]:.2f}_{initialGuess[2]:.2f}_{initialGuess[3]:.2f}_nFrequenz={nFrequencies}_firstFrequenz={firstFrequency}.dat"
+    initialGuess = np.array([4.0, 0.30, 0.30, 0.30])
+    objective_function_scipy.filename = f"ZNEU_SO_{initialGuess[0]:.2f}_{initialGuess[1]:.2f}_{initialGuess[2]:.2f}_{initialGuess[3]:.2f}_nFrequenz={nFrequencies}_firstFrequenz={firstFrequency}.dat"
     optimize.minimize(objective_function_scipy,
                       initialGuess,
                       #tol=0,
                       method='L-BFGS-B',
-                      bounds=[(0.01, 10.0), (0.0, 10.0), (0.0, 10.0), (0.0, 10.0), (0.0, 10.0)],
+                      bounds=[(0.01, 10.0), (0.0, 10.0), (0.0, 10.0), (0.0, 10.0)],
                       options={'eps': 1e-1, 'maxiter': 150})
     #return result.fun
 def objective_function_gfo(para):
@@ -135,10 +139,10 @@ def objective_function_gfo(para):
 # 4.0, 0.3, 0.2, 0.2
 def doParticleSwarm():
     from gradient_free_optimizers import ParticleSwarmOptimizer
-    E1, E2, E3 = 3.0, 6.0, 1 
-    D1_1, D1_2, D1_3 = 0.1, 0.41, 1
-    D2_1, D2_2, D2_3 = 0.1, 0.41, 1 
-    D3_1, D3_2, D3_3 = 0.1, 0.41, 1 
+    E1, E2, E3 = 2.0, 2.1, 0.01 
+    D1_1, D1_2, D1_3 = 0.01, 0.02, 0.001
+    D2_1, D2_2, D2_3 = 0.01, 0.02, 0.001 
+    D3_1, D3_2, D3_3 = 0.01, 0.02, 0.001 
     search_space = {
         "E": np.arange(E1, E2, E3),
         "D1": np.arange(D1_1, D1_2, D1_3),
@@ -196,8 +200,8 @@ def doGradientDescent():
 
 
 def Plot_Frequenz():
-    filename = "Z_Iter_Überprüfung_1\iteration_SO_4.00_0.30_0.30_0.30_nFrequenz=11_firstFrequenz=1.dat"
-    row = 14
+    filename = "Z_Iter_Überprüfung_1\iteration_PS_E3.0_to_6.0_with_0.1_D1_0.1_to_0.41_with_0.001_D2_0.1_to_0.41_with_0.001_D3_0.1_to_0.41_with_0.001_nFrequenz=11_firstFrequenz=1_pop=100.dat"
+    row = 131
     data = np.loadtxt(filename)
     param = data[row,2:]
     print("Parameters: ", param)
@@ -206,12 +210,8 @@ def Plot_Frequenz():
     param[1] *= 1
     param[2] *= 1e-5
     param[3] *= 1e-12
-    #param[4] *= 1e-23
-    data = readData(param)
-    outputDir = getOutputDir(param)
-    print(outputDir)
-    print(data)
-    #print(computeError(data, True))
+    data = readData(param,"C:/Users/arsse/OneDrive/Desktop/iga-stuff/AlteErgebnisse")
+    print(computeError(data, True))
     plotBoth(data)
 
     
