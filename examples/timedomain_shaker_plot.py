@@ -1,6 +1,9 @@
 import numpy as np
 import os
+import matplotlib.pyplot as plt
 from context import fem1d
+plt.rcParams['text.usetex'] = True
+plt.rcParams['text.latex.preamble'] = r'\usepackage{amsmath}'
 
 def run(extraDelta = 0.0, params = [ 0.5e5, 0.5, 0.5e-5, 1e-10 ], frequency = 200, disablePlots = False):
     if 'config' not in locals():
@@ -31,7 +34,6 @@ def run(extraDelta = 0.0, params = [ 0.5e5, 0.5, 0.5e-5, 1e-10 ], frequency = 20
             eigenvalueStabilizationM=0
         )
 
-
     # parameters
     config.density = 30.0
 
@@ -40,7 +42,6 @@ def run(extraDelta = 0.0, params = [ 0.5e5, 0.5, 0.5e-5, 1e-10 ], frequency = 20
     damping.pop(0)
 
     print("Elasticity set to %e" % config.elasticity)
-
     print("Damping parameters: ",  damping)
     print("Frequency set to %e" % frequency)
 
@@ -48,7 +49,6 @@ def run(extraDelta = 0.0, params = [ 0.5e5, 0.5, 0.5e-5, 1e-10 ], frequency = 20
     tMax = L*10
     nt = 1
     dt = tMax / nt
-
 
     # element size
     maxFreq = 1000
@@ -87,14 +87,11 @@ def run(extraDelta = 0.0, params = [ 0.5e5, 0.5, 0.5e-5, 1e-10 ], frequency = 20
     evalNodes = np.linspace(study.grid.left + config.extra, study.grid.right - config.extra, study.ansatz.nDof())
     u, fullU, evalU, iMat, times, reactionLeft, reactionRight = fem1d.runCentralDifferenceMethodWithDamping(study, dt, nt, u0, u1, evalNodes, damping, frequency, amplitude, preDisp)
 
-
     def shift(vector):
         return vector - np.mean(vector)
 
-
     def normalize(vector):
         return vector / max(abs(vector))
-
 
     def computeStorageAndLoss(dispPeriod, forcePeriod):
         radius = 0.015
@@ -133,7 +130,6 @@ def run(extraDelta = 0.0, params = [ 0.5e5, 0.5, 0.5e-5, 1e-10 ], frequency = 20
 
         return storage, loss, delta, deltaStorage, deltaLoss
 
-
     def evaluate():
         start = int(nt - 1.0 / frequency / dt) - 1
         end = -1
@@ -143,7 +139,15 @@ def run(extraDelta = 0.0, params = [ 0.5e5, 0.5, 0.5e-5, 1e-10 ], frequency = 20
         reacRight = shift(reactionRight[start:end])
 
         if not disablePlots:
-            fem1d.plot(disp, [reacLeft, reacRight, config.elasticity * disp / L], ["force left (in N)", "force right (in N)", "force static (in N)"], ["disp (in m)"])
+            plt.figure()
+            plt.plot(disp, reacLeft, label='Kraft links: $F(0,t)$ in $N$')
+            plt.plot(disp, reacRight, label='Kraft rechts: $F(L,t)$ in $N$')
+            plt.plot(disp, config.elasticity * disp / L, label="statische Kraft in $N$")
+            plt.xlabel("Verschiebung in $m$")
+            plt.ylabel("Kraft in $N$")
+            plt.legend()
+            plt.savefig("plot_disp_force_static.pdf") 
+            plt.close()  
 
         storageLeft, lossLeft, deltaLeft, deltaStorageLeft, deltaLossLeft = computeStorageAndLoss(disp, reacLeft)
         storageRight, lossRight, deltaRight, deltaStorageRight, deltaLossRight = computeStorageAndLoss(disp, reacRight)
@@ -161,31 +165,41 @@ def run(extraDelta = 0.0, params = [ 0.5e5, 0.5, 0.5e-5, 1e-10 ], frequency = 20
         data[:, 3] = reactionRight
         np.savetxt(outputDir + "/shaker_time_dispRight_forceLeft_forceRight_freq%d.dat" % int(frequency), data)
 
-        #print("Max disp: %e, max reaction: %e" % (maxDisp, maxReac))
-        #print("Max disp: %d, max reaction: %d" % (maxDispIndex, maxReacIndex))
-        #print("Time shift: %e, delta: %e" % (timeShift, delta))
         print("storage loss delta left: %e, %e, %e" % (storageLeft, lossLeft, deltaLeft))
         print("storage loss delta right: %e, %e, %e" % (storageRight, lossRight, deltaRight))
 
         if not disablePlots:
-            fem1d.plot(times[start:end], [normalize(disp), normalize(reacLeft), normalize(reacRight)], ["disp", "left", "right"], ["time (in s)"])
+            plt.figure()
+            plt.plot(times[start:end], normalize(disp), label='Verschiebung rechts: $y(L,t)$ in $\\mu$m')
+            plt.plot(times[start:end], normalize(reacLeft), label='Kraft links: $F(0,t)$ in $N$')
+            plt.plot(times[start:end], normalize(reacRight), label='Kraft rechts: $F(L,t)$ in $N$')
+            plt.xlabel("Zeit in $s$")
+            plt.ylabel("Kraft in $N$")
+            plt.legend()
+            plt.savefig("plot_normalized_disp_force.pdf") 
+            plt.close()  
 
         return storageLeft, lossLeft, deltaLeft, deltaStorageLeft, deltaLossLeft
 
     def postProcess(animationSpeed=4, factor=1):
         fem1d.postProcessTimeDomainSolution(study, evalNodes, evalU*factor, tMax, nt, animationSpeed)
 
-
     def getResults():
         error = np.linalg.norm(evalU[1] - evalU[-1])
         return w, error, tMax, dt, nt
 
-
     if not disablePlots:
-        fem1d.plot(times, [1e6 * u[:, -1], reactionLeft, reactionRight], ["disp. right (in 10^-6 m)", "force left (in N)", "force right (in N)"], ["time (in s)"])
-
+        plt.figure()
+        plt.plot(times, 1e6 * u[:, -1], label='Verschiebung rechts: $y(L,t)$ in $\\mu$m')
+        plt.plot(times, reactionLeft, label='Kraft links: $F(0,t)$ in $N$')
+        plt.plot(times, reactionRight, label='Kraft rechts: $F(L,t)$ in $N$')
+        plt.xlabel("Zeit in $s$")
+        plt.ylabel("Kraft in $N$ und Verschiebung in $\\mu$m")
+        plt.legend()
+        plt.savefig("plot_disp_and_force_over_time.pdf")  
+        plt.close()  
 
     storageLeft, lossLeft, deltaLeft, deltaStorageLeft, deltaLossLeft = evaluate()
 
-    #if not disablePlots:
-   #     postProcess(0.02, 1000)
+    # if not disablePlots:
+    #     postProcess(0.02, 1000)
